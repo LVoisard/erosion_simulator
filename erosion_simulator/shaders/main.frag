@@ -10,7 +10,7 @@ uniform sampler2D texture0;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 
-int threshold1 = 20;
+int threshold1 = 15;
 int threshold2 = 30;
 int threshold3 = 90;
 

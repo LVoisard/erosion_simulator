@@ -141,11 +141,11 @@ int main()
 
         mainShader.setTexture("texture0", 0);
         //meadowsGrassTexture.use(GL_TEXTURE0);
-        redSandTexture.use(GL_TEXTURE0);
+        sandTexture.use(GL_TEXTURE0);
         mainShader.setTexture("texture1", 1);
         redSandTexture.use(GL_TEXTURE1);
         mainShader.setTexture("texture2", 2);
-        grassTexture.use(GL_TEXTURE2);
+        dirtTexture.use(GL_TEXTURE2);
 
         terrainMesh.draw();
         mainShader.stop();
@@ -156,8 +156,6 @@ int main()
         waterShader.setMat4("projection", proj);
 
         waterMesh.draw();
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         waterShader.stop();
 
 
