@@ -41,13 +41,9 @@ int main()
     Shader waterShader("shaders/water.vert", "shaders/water.frag");
     Camera camera(&window, 5.0f, .25f, .5f);
 
-    Texture dirtTexture("textures/dirt.jpg");
     Texture grassTexture("textures/grass.jpg");
-    Texture sandTexture("textures/red_sand.jpg");
+    Texture sandTexture("textures/sand.jpg");
     Texture rockTexture("textures/rock.jpg");
-
-    Texture redSandTexture("textures/red-clay-wall-albedo.png");
-    // Texture meadowsGrassTexture("textures/patchy-meadow1_albedo.png");
 
     std::vector<std::string> skyboxFacesLocation;
 
@@ -61,7 +57,7 @@ int main()
     Skybox skybox(skyboxFacesLocation);
 
     // Max is 4096
-    int mapSize = 1024;
+    int mapSize = 2048;
     double minHeight = -100.0;
     double maxHeight = 516;
     double random = 3;
@@ -113,6 +109,8 @@ int main()
             std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
         currentTime = newTime;
 
+        // disable until update all meshes is done
+
         if (window.getKeyDown(GLFW_KEY_R)) {
         //if (!firstFrame) {
             firstFrame = false;
@@ -141,11 +139,11 @@ int main()
 
         mainShader.setTexture("texture0", 0);
         //meadowsGrassTexture.use(GL_TEXTURE0);
-        sandTexture.use(GL_TEXTURE0);
+        grassTexture.use(GL_TEXTURE0);
         mainShader.setTexture("texture1", 1);
-        redSandTexture.use(GL_TEXTURE1);
+        sandTexture.use(GL_TEXTURE1);
         mainShader.setTexture("texture2", 2);
-        dirtTexture.use(GL_TEXTURE2);
+        rockTexture.use(GL_TEXTURE2);
 
         terrainMesh.draw();
         mainShader.stop();
@@ -155,9 +153,8 @@ int main()
         waterShader.setMat4("view", view);
         waterShader.setMat4("projection", proj);
 
-        waterMesh.draw();
+        // waterMesh.draw();
         waterShader.stop();
-
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         window.swapBuffers();

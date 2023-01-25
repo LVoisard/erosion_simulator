@@ -10,11 +10,12 @@ uniform sampler2D texture0;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 
-int threshold1 = 15;
-int threshold2 = 30;
-int threshold3 = 90;
+int grass = 15;
+int threshold1 = 35;
+int threshold2 = 45;
+int rock = 90;
 
-vec3 lightDirection = normalize(vec3(1.0,-5.0,0.0));
+vec3 lightDirection = normalize(vec3(1.0,-3.0,0.0));
 
 void main()
 {
@@ -27,17 +28,22 @@ void main()
 	vec4 color2 = texture(texture1, texCoord);
 	vec4 color3 = texture(texture2, texCoord);
 	
-	if(theta < threshold1) 
+
+	if(theta < grass)
 	{
-		float a = smoothstep(0, threshold1, theta);
+		baseColor = color1;
+	}
+	else if(theta < threshold1)
+	{
+		float a = smoothstep(grass, threshold1, theta);
 		baseColor = vec4(mix(color1, color2, a));
-	} 
+	}
 	else if (theta < threshold2)
 	{
 		float a = smoothstep(threshold1, threshold2, theta);
 		baseColor = vec4(mix(color2, color3, a));
 	}
-	else if (theta < threshold3)
+	else if (theta < rock)
 	{
 		baseColor = color3;
 	}

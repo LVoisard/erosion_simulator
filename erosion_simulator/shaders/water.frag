@@ -4,6 +4,9 @@ in vec3 fragNormal;
 in vec3 fragPos;
 in vec2 texCoord;
 
+// input this per vertex
+int waterHeight = 1;
+
 out vec4 fragColor;
 
 uniform sampler2D texture0;

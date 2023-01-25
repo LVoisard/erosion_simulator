@@ -51,7 +51,7 @@ void TerrainMesh::calculateMeshFromMap()
 		}
 	}
 
-	recalculateNormals();
+	// recalculateNormals();
 }
 
 void TerrainMesh::recalculateNormals()
