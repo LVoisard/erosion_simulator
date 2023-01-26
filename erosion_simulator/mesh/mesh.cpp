@@ -2,15 +2,16 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-Mesh::Mesh()
+Mesh::Mesh(int size, Shader shader)
+	:size(size), shader(shader)
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &VBO);
 }
 
-Mesh::Mesh(Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount):
-	vertices(vertices), vertexCount(vertexCount), indices(indices), indexCount(indexCount)
+Mesh::Mesh(int size, Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount, Shader shader):
+	size(size), vertices(vertices), vertexCount(vertexCount), indices(indices), indexCount(indexCount), shader(shader)
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &EBO);
@@ -52,12 +53,12 @@ void Mesh::init()
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertexCount, vertices, GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(0));
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos)));
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal)));
+	glEnableVertexAttribArray(shader.getAttribLocation("pos"));
+	glEnableVertexAttribArray(shader.getAttribLocation("normal"));
+	glEnableVertexAttribArray(shader.getAttribLocation("uv"));
+	glVertexAttribPointer(shader.getAttribLocation("pos"), 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(0));
+	glVertexAttribPointer(shader.getAttribLocation("normal"), 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos)));
+	glVertexAttribPointer(shader.getAttribLocation("uv"), 2, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal)));
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -75,22 +76,40 @@ void Mesh::draw()
 	glBindVertexArray(0);
 }
 
-void Mesh::createSquareMesh(int size, double** heights)
+void Mesh::calculateVertices(HeightMap* map)
 {
-	size = size;
 	vertexCount = size * size;
 	vertices = new Vertex[vertexCount];
 
 	for (int z = 0; z < size; z++) {
 		for (int x = 0; x < size; x++) {
 			Vertex v{};
-			v.pos = glm::vec3(x - size / 2, heights[x][z], z - size / 2) * (100.0f / size);
+			v.pos = glm::vec3(x - size / 2, map->samplePoint(x, z), z - size / 2);
 			v.normal = glm::vec3(0.0f);
 			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
 			vertices[z * size + x] = v;
 		}
 	}
+}
 
+void Mesh::calculateVertices(double** height)
+{
+	vertexCount = size * size;
+	vertices = new Vertex[vertexCount];
+
+	for (int z = 0; z < size; z++) {
+		for (int x = 0; x < size; x++) {
+			Vertex v{};
+			v.pos = glm::vec3(x - size / 2, height[x][z], z - size / 2);
+			v.normal = glm::vec3(0.0f);
+			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
+			vertices[z * size + x] = v;
+		}
+	}
+}
+
+void Mesh::calculateIndices()
+{
 	indexCount = (size - 1) * (size - 1) * 6;
 	indices = new uint32_t[indexCount];
 	int indicesIndex = 0;
@@ -108,8 +127,51 @@ void Mesh::createSquareMesh(int size, double** heights)
 			indicesIndex += 5;
 		}
 	}
+}
 
-	init();
+void Mesh::calculateNormals()
+{
+	for (int y = 1; y < (size - 1); y++)
+	{
+		for (int x = 1; x < (size - 1); x++)
+		{
+			glm::vec3 center = vertices[y * size + x].pos;
+
+			glm::vec3 right = vertices[y * size + x + 1].pos;
+			glm::vec3 up = vertices[(y + 1) * size + x].pos;
+
+			glm::vec3 left = vertices[y * size + x - 1].pos;
+			glm::vec3 bottom = vertices[(y - 1) * size + x].pos;
+
+
+			glm::vec3 v1 = normalize(right - center);
+			glm::vec3 v2 = normalize(up - center);
+			glm::vec3 v3 = normalize(left - center);
+			glm::vec3 v4 = normalize(bottom - center);
+
+			glm::vec3 normal1 = cross(v2, v1);
+			glm::vec3 normal2 = cross(v3, v2);
+			glm::vec3 normal3 = cross(v4, v3);
+			glm::vec3 normal4 = cross(v1, v4);
+
+			glm::vec3 normal = normal1 + normal2 + normal3 + normal4;
+
+			// ridge check
+			/*if (normal.y < 2)
+			{
+				glm::vec3 norms[] = {normal1, normal2, normal3, normal4};
+				glm::vec3 smallestYNorm = norms[0];
+				for (int i = 0; i < 4; i++)
+				{
+					if (norms[i].y < smallestYNorm.y)
+						smallestYNorm = norms[i];
+				}
+				normal = smallestYNorm;
+			}*/
+
+			vertices[y * size + x].normal = glm::normalize(normal);
+		}
+	}
 }
 
 void Mesh::update()

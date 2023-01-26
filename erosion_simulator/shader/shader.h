@@ -16,6 +16,9 @@ public:
 	void stop() { glUseProgram(0); }
 	void clear();
 
+	uint32_t getAttribLocation(const char* name) { 
+		return glGetAttribLocation(ID, name); 
+	};
 	void setMat4(const char* name, glm::mat4& matrix);
 	void setTexture(const char* name, int activeTexture);
 	void setTextures(const char* name, int texCount, int* values);

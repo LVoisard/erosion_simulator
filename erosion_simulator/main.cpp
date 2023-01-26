@@ -9,11 +9,10 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <mesh/water_mesh.h>
 
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
-
-bool firstFrame = true;
 
 struct FlowFlux
 {
@@ -23,13 +22,81 @@ struct FlowFlux
     double bottom;
 };
 
+struct ErosionCell
+{
+    double terrainHeight; // b
+    double waterHeight; // d
+    double suspendedSedimentAmount; // s
+    FlowFlux outflowFlux; // f
+    glm::vec2 velocity; // v
+};
+
 struct ErosionModel 
 {
-    double** terrainHeight; // b
-    double** waterHeight; // d
-    double** suspendedSedimentAmount; // s
+    int size;
+
+    double** terrainHeights; // b
+    double** waterHeights; // d
+    double** suspendedSedimentAmounts; // s
     FlowFlux** outflowFlux; // f
-    glm::vec2** velocity; // v
+    glm::vec2** velocities; // v
+
+    ErosionCell getCell(int x, int y) {
+        return ErosionCell{
+            terrainHeights[x][y],
+            waterHeights[x][y],
+            suspendedSedimentAmounts[x][y],
+            outflowFlux[x][y],
+            velocities[x][y]
+        };
+    }
+
+    std::vector<ErosionCell> getNeighbourCells(int x, int y) {
+        std::vector<ErosionCell> cells;
+        if (x > 0) {
+            cells.push_back(
+                ErosionCell{
+                    terrainHeights[x - 1][y],
+                    waterHeights[x - 1][y],
+                    suspendedSedimentAmounts[x - 1][y],
+                    outflowFlux[x - 1][y],
+                    velocities[x - 1][y]
+                });
+        } 
+        else if (x < size) {
+            cells.push_back(
+                ErosionCell{
+                    terrainHeights[x + 1][y],
+                    waterHeights[x + 1][y],
+                    suspendedSedimentAmounts[x + 1][y],
+                    outflowFlux[x + 1][y],
+                    velocities[x + 1][y]
+                });
+        }
+
+        if (y > 0) {
+            cells.push_back(
+                ErosionCell{
+                    terrainHeights[x][y - 1],
+                    waterHeights[x][y - 1],
+                    suspendedSedimentAmounts[x][y - 1],
+                    outflowFlux[x][y - 1],
+                    velocities[x][y - 1]
+                });
+        }
+        else if (y < size) {
+            cells.push_back(
+                ErosionCell{
+                    terrainHeights[x][y + 1],
+                    waterHeights[x][y + 1],
+                    suspendedSedimentAmounts[x][y + 1],
+                    outflowFlux[x][y + 1],
+                    velocities[x][y + 1]
+                });
+        }
+
+        return cells;
+    }
 };
 
 float waterflowRate = 0.1f;
@@ -57,46 +124,46 @@ int main()
     Skybox skybox(skyboxFacesLocation);
 
     // Max is 4096
-    int mapSize = 2048;
+    int mapSize = 512;
     double minHeight = -100.0;
     double maxHeight = 516;
     double random = 3;
-	
 	HeightMap map(mapSize, minHeight, maxHeight, random);
-	// map.saveHeightMapPPM("height_map.ppm");
-
-	TerrainMesh terrainMesh(map.getheightMapSize(), &map);
-    
-    double** waterLevel = new double* [mapSize];
+    HeightMap waterMap(mapSize, 0, 5, 5);
 
     ErosionModel model;
-    model.terrainHeight = new double* [mapSize];
-    model.waterHeight = new double* [mapSize];
-    model.suspendedSedimentAmount = new double* [mapSize];
-    model.outflowFlux = new FlowFlux * [mapSize];
-    model.velocity = new glm::vec2* [mapSize];
-    for (int i = 0; i < mapSize; i++) {
-        model.terrainHeight[i] = new double [mapSize];
-        model.waterHeight[i] = new double[mapSize];
-        model.suspendedSedimentAmount[i] = new double[mapSize];
-        model.outflowFlux[i] = new FlowFlux [mapSize];
-        model.velocity[i] = new glm::vec2[mapSize];
-        waterLevel[i] = new double[mapSize];
+
+    model.terrainHeights = new double* [mapSize + 1];
+    model.waterHeights = new double* [mapSize + 1];
+    model.suspendedSedimentAmounts = new double* [mapSize + 1];
+    model.outflowFlux = new FlowFlux * [mapSize + 1];
+    model.velocities = new glm::vec2 * [mapSize + 1];
+
+    for (int y = 0; y < mapSize + 1; y++)
+    {
+        model.terrainHeights[y] = new double [mapSize + 1];
+        model.waterHeights[y] = new double [mapSize + 1];
+        model.suspendedSedimentAmounts[y] = new double [mapSize + 1];
+        model.outflowFlux[y] = new FlowFlux  [mapSize + 1];
+        model.velocities[y] = new glm::vec2  [mapSize + 1];
     }
 
-    for (int y = 0; y < mapSize; y++)
-        for (int x = 0; x < mapSize; x++)
+    for (int y = 0; y < mapSize + 1; y++)
+    {
+        for (int x = 0; x < mapSize + 1; x++)
         {
-            model.terrainHeight[x][y] = map.samplePoint(x, y);
-            model.waterHeight[x][y] = 0.25;
-            model.suspendedSedimentAmount[x][y] = 0.0;
-            model.outflowFlux[x][y] = FlowFlux{ 0.0, 0.0, 0.0, 0.0 };
-            model.velocity[x][y] = glm::vec2(0.0);
-            waterLevel[x][y] = model.terrainHeight[x][y] + model.waterHeight[x][y];
+            model.terrainHeights[x][y] = map.samplePoint(x, y);
+            model.waterHeights[x][y] = 0.0;
+            model.suspendedSedimentAmounts[x][y] = 0.0;
+            model.outflowFlux[x][y] = FlowFlux{};
+            model.velocities[x][y] = glm::vec2(0.0f);
         }
+    }
 
-    Mesh waterMesh;
-    waterMesh.createSquareMesh(mapSize, waterLevel);
+	TerrainMesh terrainMesh(map.getheightMapSize(), &map, mainShader);
+    terrainMesh.init();
+    WaterMesh waterMesh(map.getheightMapSize(), model.terrainHeights, model.waterHeights, waterShader);
+    waterMesh.init();
 
     glm::mat4 proj = glm::mat4(1.0f);
     proj = glm::perspective(glm::radians(90.0f), window.getAspectRatio(), 0.1f, 1000.0f);
@@ -112,18 +179,13 @@ int main()
         // disable until update all meshes is done
 
         if (window.getKeyDown(GLFW_KEY_R)) {
-        //if (!firstFrame) {
-            firstFrame = false;
             map.changeSeed();
-            terrainMesh.updateMeshFromMap();
-            // map.saveHeightMapPPM("height_map.ppm");
+            waterMap.changeSeed();
+            terrainMesh.updateMeshFromMap(&map);
         }
 
         camera.update(deltaTime);
 
-        // render
-        // ------
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 model = glm::mat4(1.0f);
@@ -138,7 +200,6 @@ int main()
         mainShader.setMat4("projection", proj);
 
         mainShader.setTexture("texture0", 0);
-        //meadowsGrassTexture.use(GL_TEXTURE0);
         grassTexture.use(GL_TEXTURE0);
         mainShader.setTexture("texture1", 1);
         sandTexture.use(GL_TEXTURE1);
@@ -153,10 +214,9 @@ int main()
         waterShader.setMat4("view", view);
         waterShader.setMat4("projection", proj);
 
-        // waterMesh.draw();
+        waterMesh.draw();
         waterShader.stop();
 
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         window.swapBuffers();
         window.updateInput();
         window.pollEvents();

@@ -4,15 +4,12 @@
 class TerrainMesh :  public Mesh
 {
 public:
-	TerrainMesh(int size, HeightMap* heightMap);
+	TerrainMesh(int size, double** terrainHeights, Shader shader);
+	TerrainMesh(int size, HeightMap* heightMap, Shader shader);
 	~TerrainMesh();
 
-	void updateMeshFromMap();
+	void updateMeshFromMap(HeightMap* heightMap);
+	void updateMeshFromHeights(double** heights);
 private:
-	void calculateMeshFromMap();
-	void recalculateNormals();
-
-	HeightMap* heightMap;
-	int size;
 };
 

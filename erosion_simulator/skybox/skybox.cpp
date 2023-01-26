@@ -75,7 +75,7 @@ Skybox::Skybox(std::vector<std::string> faceLocations)
 	3, 6, 7
 	};
 
-	skyboxMesh = new Mesh(vertices, 8, indices, 36);
+	skyboxMesh = new Mesh(0, vertices, 8, indices, 36, *skyboxShader);
 }
 
 Skybox::~Skybox()
