@@ -5,8 +5,8 @@ in vec3 fragPos;
 in vec2 texCoord;
 in float fragWaterHeight;
 
-float minWaterHeight = 0.1;
-float minWaterOpacity = 0.1;
+float minWaterHeight = 0.0;
+float minWaterOpacity = 0.2;
 
 float maxWaterHeight = 5.0;
 float maxWaterOpacity = 0.8;

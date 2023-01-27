@@ -3,7 +3,7 @@
 #include "shader/shader.h"
 #include "mesh.h"
 
-WaterMesh::WaterMesh(int size, double** waterFloor, double** waterHeight, Shader shader)
+WaterMesh::WaterMesh(int size, double*** waterFloor, double*** waterHeight, Shader shader)
 	:Mesh(size, shader)
 {	
 	calculateVertices(waterFloor);
@@ -12,13 +12,23 @@ WaterMesh::WaterMesh(int size, double** waterFloor, double** waterHeight, Shader
 	calculateNormals();
 }
 
-void WaterMesh::changeVerticesWaterHeight(double** waterHeight)
+void WaterMesh::updateMeshFromHeights(double*** waterFloor, double*** waterHeight)
+{
+	clearData();
+	calculateVertices(waterFloor);
+	changeVerticesWaterHeight(waterHeight);
+	calculateIndices();
+	calculateNormals();
+	update();
+}
+
+void WaterMesh::changeVerticesWaterHeight(double*** waterHeight)
 {
 	for (int y = 0; y < size; y++)
 	{
 		for (int x = 0; x < size; x++)
 		{
-			vertices[y * size + x].waterHeight = waterHeight[x][y];
+			vertices[y * size + x].waterHeight = (*waterHeight)[x][y];
 		}
 	}
 }

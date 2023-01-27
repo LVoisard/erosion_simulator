@@ -85,14 +85,14 @@ void Mesh::calculateVertices(HeightMap* map)
 		for (int x = 0; x < size; x++) {
 			Vertex v{};
 			v.pos = glm::vec3(x - size / 2, map->samplePoint(x, z), z - size / 2);
-			v.normal = glm::vec3(0.0f);
+			v.normal = v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
 			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
 			vertices[z * size + x] = v;
 		}
 	}
 }
 
-void Mesh::calculateVertices(double** height)
+void Mesh::calculateVertices(double*** height)
 {
 	vertexCount = size * size;
 	vertices = new Vertex[vertexCount];
@@ -100,8 +100,8 @@ void Mesh::calculateVertices(double** height)
 	for (int z = 0; z < size; z++) {
 		for (int x = 0; x < size; x++) {
 			Vertex v{};
-			v.pos = glm::vec3(x - size / 2, height[x][z], z - size / 2);
-			v.normal = glm::vec3(0.0f);
+			v.pos = glm::vec3(x - size / 2, (*height)[x][z], z - size / 2);
+			v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
 			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
 			vertices[z * size + x] = v;
 		}
@@ -172,6 +172,24 @@ void Mesh::calculateNormals()
 			vertices[y * size + x].normal = glm::normalize(normal);
 		}
 	}
+}
+
+void Mesh::updateMeshFromMap(HeightMap* heightMap)
+{
+	clearData();
+	calculateVertices(heightMap);
+	calculateIndices();
+	calculateNormals();
+	update();
+}
+
+void Mesh::updateMeshFromHeights(double*** heights)
+{
+	clearData();
+	calculateVertices(heights);
+	calculateIndices();
+	calculateNormals();
+	update();
 }
 
 void Mesh::update()

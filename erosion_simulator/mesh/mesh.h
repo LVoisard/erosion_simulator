@@ -20,6 +20,8 @@ public:
 	~Mesh();
 	virtual void init();
 	void draw();
+	void updateMeshFromMap(HeightMap* heightMap);
+	void updateMeshFromHeights(double*** heights);
 
 	Vertex* vertices;
 	uint32_t vertexCount = 0;
@@ -30,9 +32,11 @@ public:
 protected:
 	int size;
 	virtual void calculateVertices(HeightMap* map);
-	virtual void calculateVertices(double** height);
+	virtual void calculateVertices(double*** height);
 	virtual void calculateIndices();
 	virtual void calculateNormals();
+
+
 	void update();
 	void clearData();
 	uint32_t VAO, VBO, EBO;

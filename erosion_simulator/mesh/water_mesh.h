@@ -5,9 +5,10 @@
 class WaterMesh : public Mesh
 {
 public:
-	WaterMesh(int size, double** waterFloor, double** waterHeight, Shader shader);
+	WaterMesh(int size, double*** waterFloor, double*** waterHeight, Shader shader);
 
-	void changeVerticesWaterHeight(double** waterHeight);
+	void updateMeshFromHeights(double*** waterFloor, double*** waterHeight);
+	void changeVerticesWaterHeight(double*** waterHeight);
 	virtual void init() override;
 private:
 };

@@ -11,219 +11,419 @@
 #include <chrono>
 #include <mesh/water_mesh.h>
 
+#include <iostream>
+
+#include <random>
+
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
+std::default_random_engine gen;
+std::uniform_int_distribution<> distr(0, 512);
+
 struct FlowFlux
 {
-    double left;
-    double right;
-    double top;
-    double bottom;
+	double left;
+	double right;
+	double top;
+	double bottom;
 };
 
 struct ErosionCell
 {
-    double terrainHeight; // b
-    double waterHeight; // d
-    double suspendedSedimentAmount; // s
-    FlowFlux outflowFlux; // f
-    glm::vec2 velocity; // v
+	double terrainHeight; // b
+	double waterHeight; // d
+	double suspendedSedimentAmount; // s
+	FlowFlux outflowFlux; // f
+	glm::vec2 velocity; // v
 };
 
-struct ErosionModel 
+struct ErosionModel
 {
-    int size;
+	int size;
 
-    double** terrainHeights; // b
-    double** waterHeights; // d
-    double** suspendedSedimentAmounts; // s
-    FlowFlux** outflowFlux; // f
-    glm::vec2** velocities; // v
+	double** terrainHeights; // b
+	double** waterHeights; // d
+	double** suspendedSedimentAmounts; // s
+	FlowFlux** outflowFlux; // f
+	glm::vec2** velocities; // v
 
-    ErosionCell getCell(int x, int y) {
-        return ErosionCell{
-            terrainHeights[x][y],
-            waterHeights[x][y],
-            suspendedSedimentAmounts[x][y],
-            outflowFlux[x][y],
-            velocities[x][y]
-        };
-    }
+	ErosionCell* getCell(int x, int y) {
+		ErosionCell cell{
+			terrainHeights[x][y],
+			waterHeights[x][y],
+			suspendedSedimentAmounts[x][y],
+			outflowFlux[x][y],
+			velocities[x][y]
+		};
+		return &cell;
+	}
 
-    std::vector<ErosionCell> getNeighbourCells(int x, int y) {
-        std::vector<ErosionCell> cells;
-        if (x > 0) {
-            cells.push_back(
-                ErosionCell{
-                    terrainHeights[x - 1][y],
-                    waterHeights[x - 1][y],
-                    suspendedSedimentAmounts[x - 1][y],
-                    outflowFlux[x - 1][y],
-                    velocities[x - 1][y]
-                });
-        } 
-        else if (x < size) {
-            cells.push_back(
-                ErosionCell{
-                    terrainHeights[x + 1][y],
-                    waterHeights[x + 1][y],
-                    suspendedSedimentAmounts[x + 1][y],
-                    outflowFlux[x + 1][y],
-                    velocities[x + 1][y]
-                });
-        }
+	ErosionCell* getNeighbourLeft(int x, int y) {
+		ErosionCell cell;
+		if (x > 0) {
+			cell = ErosionCell{
+				terrainHeights[x - 1][y],
+				waterHeights[x - 1][y],
+				suspendedSedimentAmounts[x - 1][y],
+				outflowFlux[x - 1][y],
+				velocities[x - 1][y]
+			};
+		}
+		else
+			return nullptr;
+		return &cell;
+	}
 
-        if (y > 0) {
-            cells.push_back(
-                ErosionCell{
-                    terrainHeights[x][y - 1],
-                    waterHeights[x][y - 1],
-                    suspendedSedimentAmounts[x][y - 1],
-                    outflowFlux[x][y - 1],
-                    velocities[x][y - 1]
-                });
-        }
-        else if (y < size) {
-            cells.push_back(
-                ErosionCell{
-                    terrainHeights[x][y + 1],
-                    waterHeights[x][y + 1],
-                    suspendedSedimentAmounts[x][y + 1],
-                    outflowFlux[x][y + 1],
-                    velocities[x][y + 1]
-                });
-        }
+	ErosionCell* getNeighbourRight(int x, int y) {
+		//right
+		ErosionCell cell;
+		if (x < size) {
+			cell = ErosionCell{
+				terrainHeights[x + 1][y],
+				waterHeights[x + 1][y],
+				suspendedSedimentAmounts[x + 1][y],
+				outflowFlux[x + 1][y],
+				velocities[x + 1][y]
+			};
+		}
+		else
+			return nullptr;
+		return &cell;
+	}
 
-        return cells;
-    }
+	ErosionCell* getNeighbourTop(int x, int y) {
+		//right
+		ErosionCell cell;
+		if (y < size) {
+			cell = ErosionCell{
+				terrainHeights[x][y + 1],
+				waterHeights[x][y + 1],
+				suspendedSedimentAmounts[x][y + 1],
+				outflowFlux[x][y + 1],
+				velocities[x][y + 1]
+			};
+		}
+		else
+			return nullptr;
+		return &cell;
+	}
+
+	ErosionCell* getNeighbourBottom(int x, int y) {
+		//right
+		ErosionCell cell;
+		if (y > 0) {
+			cell = ErosionCell{
+				terrainHeights[x][y - 1],
+				waterHeights[x][y - 1],
+				suspendedSedimentAmounts[x][y - 1],
+				outflowFlux[x][y - 1],
+				velocities[x][y - 1]
+			};
+		}
+		else
+			return nullptr;
+		return &cell;
+	}
 };
 
 float waterflowRate = 0.1f;
 
+Window window(SCR_WIDTH, SCR_HEIGHT);
+Shader mainShader("shaders/main.vert", "shaders/main.frag");
+Shader waterShader("shaders/water.vert", "shaders/water.frag");
+Camera camera(&window, 5.0f, .25f, .5f);
+
+Texture grassTexture("textures/grass.jpg");
+Texture sandTexture("textures/sand.jpg");
+Texture rockTexture("textures/rock.jpg");
+
+std::vector<std::string> skyboxFacesLocation{
+	"textures/skybox/px.png",
+	"textures/skybox/nx.png",
+	"textures/skybox/py.png",
+	"textures/skybox/ny.png",
+	"textures/skybox/pz.png",
+	"textures/skybox/nz.png"
+};
+
+Skybox skybox(skyboxFacesLocation);
+ErosionModel model;
+
+// Max is 4096
+
+// max size for cpu computations is 512,
+// 256 is better
+int mapSize = 512;
+double minHeight = 0.0;
+double maxHeight = 200;
+double random = 3;
+HeightMap map(mapSize, minHeight, maxHeight, random);
+
+TerrainMesh* terrainMesh;
+WaterMesh* waterMesh;
+
+
+void initModel()
+{
+	model.terrainHeights = new double* [mapSize + 1];
+	model.waterHeights = new double* [mapSize + 1];
+	model.suspendedSedimentAmounts = new double* [mapSize + 1];
+	model.outflowFlux = new FlowFlux * [mapSize + 1];
+	model.velocities = new glm::vec2 * [mapSize + 1];
+
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		model.terrainHeights[y] = new double[mapSize + 1];
+		model.waterHeights[y] = new double[mapSize + 1];
+		model.suspendedSedimentAmounts[y] = new double[mapSize + 1];
+		model.outflowFlux[y] = new FlowFlux[mapSize + 1];
+		model.velocities[y] = new glm::vec2[mapSize + 1];
+	}
+
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		for (int x = 0; x < mapSize + 1; x++)
+		{
+			model.terrainHeights[x][y] = map.samplePoint(x, y);
+			model.waterHeights[x][y] = 1.0;
+			model.suspendedSedimentAmounts[x][y] = 0.0;
+			model.outflowFlux[x][y] = FlowFlux{};
+			model.velocities[x][y] = glm::vec2(0.0f);
+		}
+	}
+}
+
+void resetModel()
+{
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		for (int x = 0; x < mapSize + 1; x++)
+		{
+			model.terrainHeights[x][y] = map.samplePoint(x, y);
+			model.waterHeights[x][y] = 1.0;
+			model.suspendedSedimentAmounts[x][y] = 0.0;
+			model.outflowFlux[x][y] = FlowFlux{};
+			model.velocities[x][y] = glm::vec2(0.0f);
+		}
+	}
+
+	terrainMesh->updateMeshFromHeights(&model.terrainHeights);
+	waterMesh->updateMeshFromHeights(&model.terrainHeights, &model.waterHeights);
+}
+
+void updateModel(float dt)
+{
+	// each frame, water should uniformly increment accross the grid
+
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		for (int x = 0; x < mapSize + 1; x++)
+		{
+			if (distr(gen) == 0)
+				model.waterHeights[x][y] += dt * 250;
+		}
+	}
+
+	// then calculate the outflow of water to other cells
+
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		for (int x = 0; x < mapSize + 1; x++)
+		{
+			// left output
+			double area = 1; // area of cell
+			double l = 1; // length of cell
+			double g = 9.8;
+			double b = model.getCell(x, y)->terrainHeight;
+			double d = model.getCell(x, y)->waterHeight;
+
+			double K = std::min(1.0,
+				(model.getCell(x, y)->waterHeight * l * l) /
+				(
+					(
+						model.getCell(x, y)->outflowFlux.left +
+						model.getCell(x, y)->outflowFlux.right +
+						model.getCell(x, y)->outflowFlux.top +
+						model.getCell(x, y)->outflowFlux.bottom
+						)
+					* dt)
+			);
+
+			if (model.getNeighbourLeft(x, y) != nullptr) {
+
+				double dh =
+					b +
+					d -
+					model.getNeighbourLeft(x, y)->terrainHeight -
+					model.getNeighbourLeft(x, y)->waterHeight;
+				double f = std::max(0.0, model.outflowFlux[x][y].left + dt * area * ((g * dh) / l));
+				model.outflowFlux[x][y].left = K * f;
+			}
+
+			if (model.getNeighbourRight(x, y) != nullptr) {
+
+				double dh =
+					b +
+					d -
+					model.getNeighbourRight(x, y)->terrainHeight -
+					model.getNeighbourRight(x, y)->waterHeight;
+				double f = std::max(0.0, model.outflowFlux[x][y].right + dt * area * ((g * dh) / l));
+				model.outflowFlux[x][y].right = K * f;
+			}
+
+			if (model.getNeighbourTop(x, y) != nullptr) {
+
+				double dh =
+					b +
+					d -
+					model.getNeighbourTop(x, y)->terrainHeight -
+					model.getNeighbourTop(x, y)->waterHeight;
+				double f = std::max(0.0, model.outflowFlux[x][y].top + dt * area * ((g * dh) / l));
+				model.outflowFlux[x][y].top = K * f;
+			}
+
+			if (model.getNeighbourBottom(x, y) != nullptr) {
+
+				double dh =
+					b +
+					d -
+					model.getNeighbourBottom(x, y)->terrainHeight -
+					model.getNeighbourBottom(x, y)->waterHeight;
+				double f = std::max(0.0, model.outflowFlux[x][y].bottom + dt * area * ((g * dh) / l));
+				model.outflowFlux[x][y].bottom = K * f;
+			}
+
+
+		}
+	}
+
+	// recieve water from neighbors and send out to neighbors
+
+	for (int y = 0; y < mapSize + 1; y++)
+	{
+		for (int x = 0; x < mapSize + 1; x++)
+		{
+			FlowFlux current = model.getCell(x, y)->outflowFlux;
+			if (current.left > 0)
+				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.left;
+			if (current.right > 0)
+				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.right;
+			if (current.top > 0)
+				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.top;
+			if (current.bottom > 0)
+				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.bottom;
+
+			if (model.getNeighbourLeft(x, y) != nullptr)
+			{
+				//if (model.getNeighbourLeft(x, y)->outflowFlux.right > 0.0)
+					model.waterHeights[x][y] += dt * model.getNeighbourLeft(x, y)->outflowFlux.right;
+			}
+
+			if (model.getNeighbourRight(x, y) != nullptr)
+			{
+				//if (model.getNeighbourRight(x, y)->outflowFlux.left > 0.0)
+					model.waterHeights[x][y] += dt * model.getNeighbourRight(x, y)->outflowFlux.left;
+			}
+
+			if (model.getNeighbourTop(x, y) != nullptr)
+			{
+				//if (model.getNeighbourTop(x, y)->outflowFlux.bottom > 0.0)
+					model.waterHeights[x][y] += dt * model.getNeighbourTop(x, y)->outflowFlux.bottom;
+			}
+
+			if (model.getNeighbourBottom(x, y) != nullptr)
+			{
+				//if (model.getNeighbourBottom(x, y)->outflowFlux.top > 0.0)
+					model.waterHeights[x][y] += dt * model.getNeighbourBottom(x, y)->outflowFlux.top;
+			}
+
+		}
+	}
+
+	terrainMesh->updateMeshFromHeights(&model.terrainHeights);
+	waterMesh->updateMeshFromHeights(&model.terrainHeights, &model.waterHeights);
+}
+
+bool isRaining = false;
+
 int main()
 {
-    Window window(SCR_WIDTH, SCR_HEIGHT);
-    Shader mainShader("shaders/main.vert", "shaders/main.frag");
-    Shader waterShader("shaders/water.vert", "shaders/water.frag");
-    Camera camera(&window, 5.0f, .25f, .5f);
+	initModel();
 
-    Texture grassTexture("textures/grass.jpg");
-    Texture sandTexture("textures/sand.jpg");
-    Texture rockTexture("textures/rock.jpg");
+	terrainMesh = new TerrainMesh(map.getheightMapSize(), &model.terrainHeights, mainShader);
+	waterMesh = new WaterMesh(map.getheightMapSize(), &model.terrainHeights, &model.waterHeights, waterShader);
 
-    std::vector<std::string> skyboxFacesLocation;
+	terrainMesh->init();
+	waterMesh->init();
 
-    skyboxFacesLocation.push_back("textures/skybox/px.png");
-    skyboxFacesLocation.push_back("textures/skybox/nx.png");
-    skyboxFacesLocation.push_back("textures/skybox/py.png");
-    skyboxFacesLocation.push_back("textures/skybox/ny.png");
-    skyboxFacesLocation.push_back("textures/skybox/pz.png");
-    skyboxFacesLocation.push_back("textures/skybox/nz.png");
+	glm::mat4 proj = glm::mat4(1.0f);
+	proj = glm::perspective(glm::radians(90.0f), window.getAspectRatio(), 0.1f, 1000.0f);
 
-    Skybox skybox(skyboxFacesLocation);
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	while (!window.shouldWindowClose())
+	{
+		auto newTime = std::chrono::high_resolution_clock::now();
+		float deltaTime =
+			std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+		currentTime = newTime;
 
-    // Max is 4096
-    int mapSize = 512;
-    double minHeight = -100.0;
-    double maxHeight = 516;
-    double random = 3;
-	HeightMap map(mapSize, minHeight, maxHeight, random);
-    HeightMap waterMap(mapSize, 0, 5, 5);
+		// disable until update all meshes is done
 
-    ErosionModel model;
+		if (window.getKeyDown(GLFW_KEY_R)) {
+			map.changeSeed();
+			resetModel();
+		}
 
-    model.terrainHeights = new double* [mapSize + 1];
-    model.waterHeights = new double* [mapSize + 1];
-    model.suspendedSedimentAmounts = new double* [mapSize + 1];
-    model.outflowFlux = new FlowFlux * [mapSize + 1];
-    model.velocities = new glm::vec2 * [mapSize + 1];
+		if (window.getKeyDown(GLFW_KEY_P) && !isRaining) {
+			isRaining = true;
+		}
 
-    for (int y = 0; y < mapSize + 1; y++)
-    {
-        model.terrainHeights[y] = new double [mapSize + 1];
-        model.waterHeights[y] = new double [mapSize + 1];
-        model.suspendedSedimentAmounts[y] = new double [mapSize + 1];
-        model.outflowFlux[y] = new FlowFlux  [mapSize + 1];
-        model.velocities[y] = new glm::vec2  [mapSize + 1];
-    }
+		if (isRaining)
+		{
+			updateModel(deltaTime);
+		}
 
-    for (int y = 0; y < mapSize + 1; y++)
-    {
-        for (int x = 0; x < mapSize + 1; x++)
-        {
-            model.terrainHeights[x][y] = map.samplePoint(x, y);
-            model.waterHeights[x][y] = 0.0;
-            model.suspendedSedimentAmounts[x][y] = 0.0;
-            model.outflowFlux[x][y] = FlowFlux{};
-            model.velocities[x][y] = glm::vec2(0.0f);
-        }
-    }
+		camera.update(deltaTime);
 
-	TerrainMesh terrainMesh(map.getheightMapSize(), &map, mainShader);
-    terrainMesh.init();
-    WaterMesh waterMesh(map.getheightMapSize(), model.terrainHeights, model.waterHeights, waterShader);
-    waterMesh.init();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glm::mat4 proj = glm::mat4(1.0f);
-    proj = glm::perspective(glm::radians(90.0f), window.getAspectRatio(), 0.1f, 1000.0f);
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 view = camera.getViewMatrix();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    while (!window.shouldWindowClose())
-    {
-        auto newTime = std::chrono::high_resolution_clock::now();
-        float deltaTime =
-            std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-        currentTime = newTime;
+		skybox.DrawSkybox(view, proj);
 
-        // disable until update all meshes is done
+		// draw our first triangle
+		mainShader.use();
+		mainShader.setMat4("model", model);
+		mainShader.setMat4("view", view);
+		mainShader.setMat4("projection", proj);
 
-        if (window.getKeyDown(GLFW_KEY_R)) {
-            map.changeSeed();
-            waterMap.changeSeed();
-            terrainMesh.updateMeshFromMap(&map);
-        }
+		mainShader.setTexture("texture0", 0);
+		grassTexture.use(GL_TEXTURE0);
+		mainShader.setTexture("texture1", 1);
+		sandTexture.use(GL_TEXTURE1);
+		mainShader.setTexture("texture2", 2);
+		rockTexture.use(GL_TEXTURE2);
 
-        camera.update(deltaTime);
+		terrainMesh->draw();
+		mainShader.stop();
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		waterShader.use();
+		waterShader.setMat4("model", model);
+		waterShader.setMat4("view", view);
+		waterShader.setMat4("projection", proj);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = camera.getViewMatrix();
+		waterMesh->draw();
+		waterShader.stop();
 
-        skybox.DrawSkybox(view, proj);
+		window.swapBuffers();
+		window.updateInput();
+		window.pollEvents();
+	}
 
-        // draw our first triangle
-        mainShader.use();
-        mainShader.setMat4("model", model);
-        mainShader.setMat4("view", view);
-        mainShader.setMat4("projection", proj);
-
-        mainShader.setTexture("texture0", 0);
-        grassTexture.use(GL_TEXTURE0);
-        mainShader.setTexture("texture1", 1);
-        sandTexture.use(GL_TEXTURE1);
-        mainShader.setTexture("texture2", 2);
-        rockTexture.use(GL_TEXTURE2);
-
-        terrainMesh.draw();
-        mainShader.stop();
-
-        waterShader.use();
-        waterShader.setMat4("model", model);
-        waterShader.setMat4("view", view);
-        waterShader.setMat4("projection", proj);
-
-        waterMesh.draw();
-        waterShader.stop();
-
-        window.swapBuffers();
-        window.updateInput();
-        window.pollEvents();
-    }
-
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
-    glfwTerminate();
-    return 0;
+	// glfw: terminate, clearing all previously allocated GLFW resources.
+	// ------------------------------------------------------------------
+	glfwTerminate();
+	return 0;
 }
