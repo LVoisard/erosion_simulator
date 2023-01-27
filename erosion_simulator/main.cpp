@@ -154,10 +154,10 @@ ErosionModel model;
 
 // max size for cpu computations is 512,
 // 256 is better
-int mapSize = 512;
+int mapSize = 256;
 double minHeight = 0.0;
-double maxHeight = 200;
-double random = 3;
+double maxHeight = 1;
+double random = 0;
 HeightMap map(mapSize, minHeight, maxHeight, random);
 
 TerrainMesh* terrainMesh;
@@ -186,7 +186,7 @@ void initModel()
 		for (int x = 0; x < mapSize + 1; x++)
 		{
 			model.terrainHeights[x][y] = map.samplePoint(x, y);
-			model.waterHeights[x][y] = 1.0;
+			model.waterHeights[x][y] = 5.0;
 			model.suspendedSedimentAmounts[x][y] = 0.0;
 			model.outflowFlux[x][y] = FlowFlux{};
 			model.velocities[x][y] = glm::vec2(0.0f);
@@ -201,7 +201,7 @@ void resetModel()
 		for (int x = 0; x < mapSize + 1; x++)
 		{
 			model.terrainHeights[x][y] = map.samplePoint(x, y);
-			model.waterHeights[x][y] = 1.0;
+			model.waterHeights[x][y] = 5.0;
 			model.suspendedSedimentAmounts[x][y] = 0.0;
 			model.outflowFlux[x][y] = FlowFlux{};
 			model.velocities[x][y] = glm::vec2(0.0f);
@@ -221,7 +221,7 @@ void updateModel(float dt)
 		for (int x = 0; x < mapSize + 1; x++)
 		{
 			if (distr(gen) == 0)
-				model.waterHeights[x][y] += dt * 250;
+				model.waterHeights[x][y] += dt * 10;
 		}
 	}
 
@@ -238,17 +238,7 @@ void updateModel(float dt)
 			double b = model.getCell(x, y)->terrainHeight;
 			double d = model.getCell(x, y)->waterHeight;
 
-			double K = std::min(1.0,
-				(model.getCell(x, y)->waterHeight * l * l) /
-				(
-					(
-						model.getCell(x, y)->outflowFlux.left +
-						model.getCell(x, y)->outflowFlux.right +
-						model.getCell(x, y)->outflowFlux.top +
-						model.getCell(x, y)->outflowFlux.bottom
-						)
-					* dt)
-			);
+			
 
 			if (model.getNeighbourLeft(x, y) != nullptr) {
 
@@ -258,7 +248,10 @@ void updateModel(float dt)
 					model.getNeighbourLeft(x, y)->terrainHeight -
 					model.getNeighbourLeft(x, y)->waterHeight;
 				double f = std::max(0.0, model.outflowFlux[x][y].left + dt * area * ((g * dh) / l));
-				model.outflowFlux[x][y].left = K * f;
+				model.outflowFlux[x][y].left = f;
+			}
+			else {
+				model.outflowFlux[x][y].left = 0.0;
 			}
 
 			if (model.getNeighbourRight(x, y) != nullptr) {
@@ -269,7 +262,10 @@ void updateModel(float dt)
 					model.getNeighbourRight(x, y)->terrainHeight -
 					model.getNeighbourRight(x, y)->waterHeight;
 				double f = std::max(0.0, model.outflowFlux[x][y].right + dt * area * ((g * dh) / l));
-				model.outflowFlux[x][y].right = K * f;
+				model.outflowFlux[x][y].right = f;
+			}
+			else {
+				model.outflowFlux[x][y].right = 0.0;
 			}
 
 			if (model.getNeighbourTop(x, y) != nullptr) {
@@ -280,7 +276,10 @@ void updateModel(float dt)
 					model.getNeighbourTop(x, y)->terrainHeight -
 					model.getNeighbourTop(x, y)->waterHeight;
 				double f = std::max(0.0, model.outflowFlux[x][y].top + dt * area * ((g * dh) / l));
-				model.outflowFlux[x][y].top = K * f;
+				model.outflowFlux[x][y].top = f;
+			}
+			else {
+				model.outflowFlux[x][y].top = 0.0;
 			}
 
 			if (model.getNeighbourBottom(x, y) != nullptr) {
@@ -291,10 +290,24 @@ void updateModel(float dt)
 					model.getNeighbourBottom(x, y)->terrainHeight -
 					model.getNeighbourBottom(x, y)->waterHeight;
 				double f = std::max(0.0, model.outflowFlux[x][y].bottom + dt * area * ((g * dh) / l));
-				model.outflowFlux[x][y].bottom = K * f;
+				model.outflowFlux[x][y].bottom = f;
+			}
+			else {
+				model.outflowFlux[x][y].bottom = 0.0;
 			}
 
+			double p1 = model.getCell(x, y)->waterHeight * l * l;
+			double p2 = model.getCell(x, y)->outflowFlux.left +
+				model.getCell(x, y)->outflowFlux.right +
+				model.getCell(x, y)->outflowFlux.top +
+				model.getCell(x, y)->outflowFlux.bottom;
 
+			double K = std::min(1.0, p1 / (dt * p2));
+
+			model.outflowFlux[x][y].left *= K;
+			model.outflowFlux[x][y].right *= K;
+			model.outflowFlux[x][y].top *= K;
+			model.outflowFlux[x][y].bottom *= K;
 		}
 	}
 
@@ -305,38 +318,22 @@ void updateModel(float dt)
 		for (int x = 0; x < mapSize + 1; x++)
 		{
 			FlowFlux current = model.getCell(x, y)->outflowFlux;
-			if (current.left > 0)
-				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.left;
-			if (current.right > 0)
-				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.right;
-			if (current.top > 0)
-				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.top;
-			if (current.bottom > 0)
-				model.waterHeights[x][y] -= dt * model.getCell(x, y)->outflowFlux.bottom;
 
+			double fin = 0.0;
 			if (model.getNeighbourLeft(x, y) != nullptr)
-			{
-				//if (model.getNeighbourLeft(x, y)->outflowFlux.right > 0.0)
-					model.waterHeights[x][y] += dt * model.getNeighbourLeft(x, y)->outflowFlux.right;
-			}
-
+				fin += model.getNeighbourLeft(x, y)->outflowFlux.right;
 			if (model.getNeighbourRight(x, y) != nullptr)
-			{
-				//if (model.getNeighbourRight(x, y)->outflowFlux.left > 0.0)
-					model.waterHeights[x][y] += dt * model.getNeighbourRight(x, y)->outflowFlux.left;
-			}
-
+				fin += model.getNeighbourRight(x, y)->outflowFlux.left;
 			if (model.getNeighbourTop(x, y) != nullptr)
-			{
-				//if (model.getNeighbourTop(x, y)->outflowFlux.bottom > 0.0)
-					model.waterHeights[x][y] += dt * model.getNeighbourTop(x, y)->outflowFlux.bottom;
-			}
-
+				fin += model.getNeighbourTop(x, y)->outflowFlux.bottom;
 			if (model.getNeighbourBottom(x, y) != nullptr)
-			{
-				//if (model.getNeighbourBottom(x, y)->outflowFlux.top > 0.0)
-					model.waterHeights[x][y] += dt * model.getNeighbourBottom(x, y)->outflowFlux.top;
-			}
+				fin += model.getNeighbourBottom(x, y)->outflowFlux.top;
+
+			double fout = current.left + current.right + current.top + current.bottom;
+
+			double dV = dt * (fin - fout);
+			model.waterHeights[x][y] = model.waterHeights[x][y] + dV / 1;
+
 
 		}
 	}
@@ -375,7 +372,7 @@ int main()
 			resetModel();
 		}
 
-		if (window.getKeyDown(GLFW_KEY_P) && !isRaining) {
+		if (window.getKeyDown(GLFW_KEY_ENTER) && !isRaining) {
 			isRaining = true;
 		}
 
