@@ -3,14 +3,14 @@
 layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 uv;
-
-in float height;
+layout (location = 3) in float height;
+layout (location = 4) in vec2 velocity;
 
 out vec3 fragNormal;
 out vec3 fragPos;
 out vec2 texCoord;
-
 out float fragWaterHeight;
+out vec2 fragWaterVelocity;
 
 uniform mat4 model;
 uniform mat4 projection;
@@ -27,4 +27,6 @@ void main()
 	texCoord = uv;
 
 	fragWaterHeight = height;
+
+	fragWaterVelocity = velocity;
 }

@@ -19,6 +19,9 @@ public:
 	uint32_t getAttribLocation(const char* name) { 
 		return glGetAttribLocation(ID, name); 
 	};
+
+	void setUniformVector3(const char* name, glm::vec3);
+	void setUniformFloat(const char* name, float* val);
 	void setMat4(const char* name, glm::mat4& matrix);
 	void setTexture(const char* name, int activeTexture);
 	void setTextures(const char* name, int texCount, int* values);

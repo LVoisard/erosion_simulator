@@ -92,7 +92,7 @@ void Mesh::calculateVertices(HeightMap* map)
 	}
 }
 
-void Mesh::calculateVertices(double*** height)
+void Mesh::calculateVertices(float*** height)
 {
 	vertexCount = size * size;
 	vertices = new Vertex[vertexCount];
@@ -131,21 +131,22 @@ void Mesh::calculateIndices()
 
 void Mesh::calculateNormals()
 {
-	for (int y = 1; y < (size - 1); y++)
+	for (int y = 0; y < size; y++)
 	{
-		for (int x = 1; x < (size - 1); x++)
+		for (int x = 0; x < size; x++)
 		{
+			// i used to have 4 adjacent tiles, but used this 8 adjacent instead
+			// costs more but looks better and is more accurate for erosion
+			// https://stackoverflow.com/questions/44120220/calculating-normals-on-terrain-mesh
 			glm::vec3 center = vertices[y * size + x].pos;
 
-			glm::vec3 right = vertices[y * size + x + 1].pos;
-			glm::vec3 up = vertices[(y + 1) * size + x].pos;
-
-			glm::vec3 left = vertices[y * size + x - 1].pos;
-			glm::vec3 bottom = vertices[(y - 1) * size + x].pos;
-
+			glm::vec3 top = y == size - 1 ? glm::vec3(0) : vertices[(y + 1) * size + x].pos;
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * size + x].pos;
+			glm::vec3 right = x == size - 1 ? glm::vec3(0) : vertices[y * size + x + 1].pos;
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * size + x - 1].pos;
 
 			glm::vec3 v1 = normalize(right - center);
-			glm::vec3 v2 = normalize(up - center);
+			glm::vec3 v2 = normalize(top - center);
 			glm::vec3 v3 = normalize(left - center);
 			glm::vec3 v4 = normalize(bottom - center);
 
@@ -154,20 +155,44 @@ void Mesh::calculateNormals()
 			glm::vec3 normal3 = cross(v4, v3);
 			glm::vec3 normal4 = cross(v1, v4);
 
-			glm::vec3 normal = normal1 + normal2 + normal3 + normal4;
-
-			// ridge check
-			/*if (normal.y < 2)
+			glm::vec3 normal = glm::vec3(0);
+			
+			if (x == 0 || x == size - 1 || y == 0 || y == size - 1)
 			{
-				glm::vec3 norms[] = {normal1, normal2, normal3, normal4};
-				glm::vec3 smallestYNorm = norms[0];
-				for (int i = 0; i < 4; i++)
+				if (top == glm::vec3(0))
 				{
-					if (norms[i].y < smallestYNorm.y)
-						smallestYNorm = norms[i];
+					if (left != glm::vec3(0))
+						normal += normal3;
+					if (right != glm::vec3(0))
+						normal += normal4;
 				}
-				normal = smallestYNorm;
-			}*/
+				else if (bottom == glm::vec3(0))
+				{
+					if (left != glm::vec3(0))
+						normal += normal2;
+					if (right != glm::vec3(0))
+						normal += normal1;
+				}
+
+				if (left == glm::vec3(0))
+				{
+					if (top != glm::vec3(0))
+						normal += normal1;
+					if (bottom != glm::vec3(0))
+						normal += normal4;
+				} 
+				else if (right == glm::vec3(0))
+				{
+					if (top != glm::vec3(0))
+						normal += normal2;
+					if (bottom != glm::vec3(0))
+						normal += normal3;
+				}
+			}
+			else
+			{
+				normal = normal1 + normal2 + normal3 + normal4;
+			}
 
 			vertices[y * size + x].normal = glm::normalize(normal);
 		}
@@ -183,7 +208,7 @@ void Mesh::updateMeshFromMap(HeightMap* heightMap)
 	update();
 }
 
-void Mesh::updateMeshFromHeights(double*** heights)
+void Mesh::updateMeshFromHeights(float*** heights)
 {
 	clearData();
 	calculateVertices(heights);
@@ -193,18 +218,13 @@ void Mesh::updateMeshFromHeights(double*** heights)
 }
 
 void Mesh::update()
-{	
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(this->vertices[0]) * vertexCount, this->vertices);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	
-	// memory leak on gpu ??, usage goes from 5% to 100%
-	/*glBindBuffer(GL_ARRAY_BUFFER, VBO);	
+{
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);	
 	void* data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	memcpy(data, vertices, sizeof(vertices[0]) * vertexCount);
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Mesh::clearData()
