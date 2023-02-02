@@ -9,7 +9,8 @@ struct Vertex
 	glm::vec3 pos;
 	glm::vec3 normal;
 	glm::vec2 uv;
-	float waterHeight;
+	float height;
+	glm::vec2 velocity;
 };
 
 class Mesh
@@ -21,7 +22,7 @@ public:
 	virtual void init();
 	void draw();
 	void updateMeshFromMap(HeightMap* heightMap);
-	void updateMeshFromHeights(double*** heights);
+	virtual void updateMeshFromHeights(float*** heights);
 
 	Vertex* vertices;
 	uint32_t vertexCount = 0;
@@ -32,7 +33,7 @@ public:
 protected:
 	int size;
 	virtual void calculateVertices(HeightMap* map);
-	virtual void calculateVertices(double*** height);
+	virtual void calculateVertices(float*** height);
 	virtual void calculateIndices();
 	virtual void calculateNormals();
 

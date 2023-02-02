@@ -5,11 +5,13 @@
 class WaterMesh : public Mesh
 {
 public:
-	WaterMesh(int size, double*** waterFloor, double*** waterHeight, Shader shader);
+	WaterMesh(int size, float*** waterFloor, float*** waterHeight, Shader shader);
 
-	void updateMeshFromHeights(double*** waterFloor, double*** waterHeight);
-	void changeVerticesWaterHeight(double*** waterHeight);
+	void updateMeshFromHeights(float*** waterFloor, float*** waterHeight, glm::vec2*** waterVelocities);
+	void changeVerticesWaterHeight(float*** waterHeight);
+	void changeVerticesWaterVelocities(glm::vec2*** waterVelocities);
 	virtual void init() override;
+	virtual void calculateNormals() override;
 private:
 };
 
