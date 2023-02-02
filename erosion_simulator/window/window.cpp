@@ -21,7 +21,7 @@ void Window::init()
 
     // glfw window creation
     // --------------------
-    glfwWindow = glfwCreateWindow(width, height, "LearnOpenGL", NULL, NULL);
+    glfwWindow = glfwCreateWindow(width, height, "Erosion Simulation", NULL, NULL);
     if (glfwWindow == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;

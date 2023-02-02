@@ -74,12 +74,12 @@ void main()
 		}
 	}
 
-	//fragColor = clamp(vec4(baseColor, 1.0) * (diffuseColor + specularColor), vec4(0), vec4(1));
-	//fragColor.a = alpha;
+	fragColor = clamp(vec4(baseColor, 1.0) * (diffuseColor + specularColor), vec4(0), vec4(1));
+	fragColor.a = alpha;
 
 	//debug water velocity
-	float velocity = min(1, length(fragWaterVelocity));
-	fragColor = vec4(velocity, getGreen(velocity), 1 - velocity, 1);
+	//float velocity = min(1, length(fragWaterVelocity));
+	//fragColor = vec4(velocity, getGreen(velocity), 1 - velocity, 1);
 
 
 }
