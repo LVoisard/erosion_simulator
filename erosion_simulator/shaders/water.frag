@@ -10,19 +10,19 @@ in vec2 fragWaterVelocity;
 
 
 float minWaterHeight = 0.05;
-float minWaterOpacity = 0.2;
+float minWaterOpacity = 0.3;
 
 float maxWaterHeight = 5.0;
-float maxWaterOpacity = 0.6;
+float maxWaterOpacity = 0.8;
 
 out vec4 fragColor;
 
 uniform vec3 viewerPosition;
 uniform sampler2D texture0;
 uniform float deltaTime;
+uniform int debugWaterVelocity;
 
-vec3 lightDirection = normalize(vec3(1.0,-3.0,0.0));
-vec3 lightPos = vec3(100.0,1000.0,-100.0);
+vec3 lightDirection = normalize(vec3(0.0,-3.0,0.0));
 
 float getGreen(float velocity)
 {
@@ -56,7 +56,7 @@ void main()
 	float a = smoothstep(minWaterHeight, maxWaterHeight, fragWaterHeight);
 	float alpha = mix(minWaterOpacity, maxWaterOpacity, a);
 
-	float diffuseFactor = max(dot(fragNormal, - normalize(viewerPosition - lightPos)), 0.0);
+	float diffuseFactor = max(dot(fragNormal, -lightDirection), alpha);
 	vec4 diffuseColor = vec4(vec3(1.0, 1.0, 1.0) * 1.0 * diffuseFactor, 1.0);
 
 	vec4 specularColor = vec4(0.0);
@@ -64,22 +64,29 @@ void main()
 	if(diffuseFactor > 0.0) 
 	{
 		vec3 viewingRay = normalize(viewerPosition - fragPos);
-		vec3 reflectedvertex = reflect(-normalize(viewerPosition - lightPos), normalize(fragNormal));
+		vec3 reflectedvertex = reflect(-lightDirection, normalize(fragNormal));
 		
 		float specularFactor = dot(viewingRay, reflectedvertex);
 		if(specularFactor > 0.0)
 		{
-			specularFactor = pow(specularFactor, 20);
-			specularColor = vec4(vec3(250.0 / 255.0, 214.0 / 256.0, 165.0/256.0) * 1 * specularFactor, 1.0);
+			specularFactor = pow(specularFactor, 100);
+			specularColor = vec4(vec3(1) * 1 * specularFactor, 1.0);
 		}
 	}
 
-	fragColor = clamp(vec4(baseColor, 1.0) * (diffuseColor + specularColor), vec4(0), vec4(1));
-	fragColor.a = alpha;
-
+	float velocity = length(fragWaterVelocity);
+	if(debugWaterVelocity == 1) {
+		fragColor = vec4(velocity, getGreen(velocity), 1 - velocity, 1);
+	}
+	else
+	{
+		vec4 base = vec4(baseColor, 1.0);
+		if(fragWaterHeight < minWaterHeight + 0.005)
+			base += vec4(1) * (1 - alpha);
+		fragColor = clamp(base * (diffuseColor + specularColor), vec4(0), vec4(1));
+		fragColor.a = alpha;
+	}
 	//debug water velocity
-	//float velocity = min(1, length(fragWaterVelocity));
-	//fragColor = vec4(velocity, getGreen(velocity), 1 - velocity, 1);
 
 
 }

@@ -127,7 +127,7 @@ Skybox skybox(skyboxFacesLocation);
 //2 ^ n
 int mapSize = 256;
 float minHeight = 0.0f;
-float maxHeight = 100;
+float maxHeight = 50;
 float random = 3;
 HeightMap map(mapSize, minHeight, maxHeight, random);
 
@@ -139,8 +139,24 @@ ErosionModel model(mapSize + 1);
 std::default_random_engine gen;
 std::uniform_int_distribution<> distr(0, mapSize* mapSize);
 
+float simulationSpeed = 5.0f;
+
+float rainIntensity = 1.0f;
+float rainAmount = 2.0f;
+float evaporationRate = 0.02f;
+
+float fluidDensity = 1.0f;
+// dont know if there should be more
+float gravitationalAcc = 9.807f;
+float length = 1.0f;
+float area = length * length;
+
+float sedimentCapacity = 0.5f;
+
 bool isRaining = false;
 bool isModelRunning = false;
+
+bool debugWaterVelocity = false;
 
 void initModel()
 {
@@ -149,7 +165,7 @@ void initModel()
 		for (int x = 0; x < model.size; x++)
 		{
 			model.terrainHeights[x][y] = map.samplePoint(x, y);
-			model.waterHeights[x][y] = 5.0f;
+			model.waterHeights[x][y] = 0.0f;
 			model.suspendedSedimentAmounts[x][y] = 0.0f;
 			model.outflowFlux[x][y] = FlowFlux{};
 			model.velocities[x][y] = glm::vec2(0.0f);
@@ -165,7 +181,7 @@ void resetModel()
 		for (int x = 0; x < model.size; x++)
 		{
 			model.terrainHeights[x][y] = map.samplePoint(x, y);
-			model.waterHeights[x][y] = 5.0f;
+			model.waterHeights[x][y] = 0.0f;
 			model.suspendedSedimentAmounts[x][y] = 0.0f;
 			model.outflowFlux[x][y] = FlowFlux{};
 			model.velocities[x][y] = glm::vec2(0.0f);
@@ -177,19 +193,6 @@ void resetModel()
 	terrainMesh->updateMeshFromHeights(&model.terrainHeights);
 	waterMesh->updateMeshFromHeights(&model.terrainHeights, &model.waterHeights, &model.velocities);
 }
-float simulationSpeed = 1.0f;
-
-float rainIntensity = 1.0f;
-float rainAmount = 1.0f;
-float evaporationRate = 0.015f;
-
-float fluidDensity = 1.0f;
-// dont know if there should be more
-float gravitationalAcc = 9.807f;
-float length = 1.0f;
-float area = length * length;
-
-float sedimentCapacity = 0.01f;
 
 void addWater(float dt) {
 	if (isRaining) {
@@ -294,12 +297,10 @@ void calculateModelWaterHeights(float dt)
 			}
 
 			float currentWaterHeight = model.waterHeights[x][y];
-			float nextWaterHeight = model.waterHeights[x][y] + (dt / (length * length)) * ((finX + finY) - (foutX + foutY));
-			model.waterHeights[x][y] = nextWaterHeight;
-
-			if (x == 0 || y == 0 || x == model.size - 1 || y == model.size - 1) 
+			float nextWaterHeight = currentWaterHeight + dt * ((finX + finY) - (foutX + foutY)) / (length * length);
+			if (x == 0 || y == 0 || x == model.size - 1 || y == model.size - 1)
 			{
-				model.velocities[x][y] = glm::vec2(0, 0);				
+				model.velocities[x][y] = glm::vec2(0, 0);
 			}
 			else
 			{
@@ -309,24 +310,37 @@ void calculateModelWaterHeights(float dt)
 
 
 				float avgWaterHeight = (currentWaterHeight + nextWaterHeight) / 2;
-				float xVelocity = (wX / length * avgWaterHeight);
-				float yVelocity = (wY / length * avgWaterHeight);
+
+				float xVelocity = (wX / (length));
+				float yVelocity = (wY / (length));
+
+				if (abs(avgWaterHeight) < 1) {
+					xVelocity *= avgWaterHeight;
+					yVelocity *= avgWaterHeight;
+				}
+				else 
+				{
+					xVelocity /= avgWaterHeight;
+					yVelocity /= avgWaterHeight;
+				}
+
 				model.velocities[x][y] = glm::vec2(xVelocity, yVelocity);
 			}
+			model.waterHeights[x][y] = nextWaterHeight;
 
 		}
 	}
 }
 void sedimentDeposition(float dt)
 {
-	for (int y = 0; y < mapSize + 1; y++)
+	for (int y = 0; y < model.size; y++)
 	{
-		for (int x = 0; x < mapSize + 1; x++)
+		for (int x = 0; x < model.size; x++)
 		{
-			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtPosition(x,y), glm::vec3(0,1,0)));
+			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtPosition(x, y), glm::vec3(0, 1, 0)));
 			float mag = glm::length(model.velocities[x][y]);
-			
-			float sedimentTransportCapacity = mag * sedimentCapacity * sinf(std::min(tiltAngle, 0.05f));
+
+			float sedimentTransportCapacity = mag * sedimentCapacity * std::min(sinf(tiltAngle), 0.05f);
 
 			if (model.suspendedSedimentAmounts[x][y] < sedimentTransportCapacity)
 			{
@@ -334,10 +348,9 @@ void sedimentDeposition(float dt)
 				float diff = dt * 0.5f * (sedimentTransportCapacity - model.suspendedSedimentAmounts[x][y]);
 				model.terrainHeights[x][y] -= diff;
 				model.suspendedSedimentAmounts[x][y] += diff;
-				//model.waterHeights[x][y] += diff;
-
+				//model.waterHeights[x][y] += diff;				
 			}
-			else
+			else if (model.suspendedSedimentAmounts[x][y] > sedimentTransportCapacity)
 			{
 				float diff = dt * (model.suspendedSedimentAmounts[x][y] - sedimentTransportCapacity);
 				model.terrainHeights[x][y] += diff;
@@ -353,8 +366,21 @@ void transportSediments(float dt)
 	{
 		for (int x = 0; x < model.size; x++)
 		{
-			int x1 = x - model.velocities[x][y].x * dt;
-			int y1 = y - model.velocities[x][y].y * dt;
+			float prevX = x - model.velocities[x][y].x * dt;
+			float prevY = y - model.velocities[x][y].y * dt;
+
+			int x1 = x;
+			int y1 = y;
+
+			x1 = prevX < 0 ? std::floor(prevX) : std::ceil(prevX);
+			y1 = prevY < 0 ? std::floor(prevY) : std::ceil(prevY);
+
+			/*float prevX = x - model.velocities[x][y].x * dt;
+			float prevY = y - model.velocities[x][y].y * dt;
+
+			int x1 = prevX < 0 ? x-1 : x+1;
+			int y1 = prevY < 0 ? y-1 : y+1;*/
+
 
 			if (model.getCell(x1, y1) != nullptr)
 				model.suspendedSedimentAmounts[x][y] = model.suspendedSedimentAmounts[x1][y1];
@@ -384,7 +410,6 @@ void updateModel(float dt)
 	calculateModelWaterHeights(dt);
 
 	sedimentDeposition(dt);
-
 
 	transportSediments(dt);
 
@@ -435,9 +460,14 @@ int main()
 			printf("%s Rain\n", isRaining ? "Enabled" : "Disabled");
 		}
 
+		if (window.getKeyDown(GLFW_KEY_V)) {
+			debugWaterVelocity = !debugWaterVelocity;
+			printf("%s Velocity Debugging\n", debugWaterVelocity ? "Enabled" : "Disabled");
+		}
+
 		if (isModelRunning)
 		{
-			updateModel(0.016777f);
+			updateModel(deltaTime);
 		}
 
 		camera.update(deltaTime);
@@ -471,6 +501,7 @@ int main()
 		waterShader.setMat4("projection", proj);
 		waterShader.setUniformVector3("viewerPosition", camera.getPosition());
 		waterShader.setUniformFloat("deltaTime", &deltaTime);
+		waterShader.setUniformBool("debugWaterVelocity", debugWaterVelocity);
 
 		waterMesh->draw();
 		waterShader.stop();
