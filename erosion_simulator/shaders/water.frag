@@ -86,8 +86,5 @@ void main()
 		fragColor = clamp(base * (diffuseColor + specularColor), vec4(0), vec4(1));
 		fragColor.a = alpha;
 	}
-	//debug water velocity
-
-
 }
 

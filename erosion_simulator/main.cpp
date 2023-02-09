@@ -127,7 +127,7 @@ Skybox skybox(skyboxFacesLocation);
 //2 ^ n
 int mapSize = 256;
 float minHeight = 0.0f;
-float maxHeight = 50;
+float maxHeight = 100;
 float random = 3;
 HeightMap map(mapSize, minHeight, maxHeight, random);
 
@@ -142,7 +142,7 @@ std::uniform_int_distribution<> distr(0, mapSize* mapSize);
 float simulationSpeed = 5.0f;
 
 float rainIntensity = 1.0f;
-float rainAmount = 2.0f;
+float rainAmount = 1.0f;
 float evaporationRate = 0.02f;
 
 float fluidDensity = 1.0f;
@@ -151,7 +151,8 @@ float gravitationalAcc = 9.807f;
 float length = 1.0f;
 float area = length * length;
 
-float sedimentCapacity = 0.5f;
+float sedimentCapacity = 0.1f;
+float slippageAngle = glm::radians(45.0f);
 
 bool isRaining = false;
 bool isModelRunning = false;
@@ -273,6 +274,16 @@ void calculateModelWaterHeights(float dt)
 			float foutX = model.outflowFlux[x][y].left + model.outflowFlux[x][y].right;
 			float foutY = model.outflowFlux[x][y].top + model.outflowFlux[x][y].bottom;
 
+			float finL = 0.0f;
+			float finR = 0.0f;
+			float finT = 0.0f;
+			float finB = 0.0f;
+
+			float foutL = model.outflowFlux[x][y].left;
+			float foutR = model.outflowFlux[x][y].right;
+			float foutT = model.outflowFlux[x][y].top;
+			float foutB = model.outflowFlux[x][y].bottom;
+
 			for (int j = -1; j <= 1; j++)
 			{
 				for (int i = -1; i <= 1; i++)
@@ -282,15 +293,19 @@ void calculateModelWaterHeights(float dt)
 						FlowFlux flux = model.outflowFlux[x - i][y - j];
 						if (j == -1) {
 							finY += flux.bottom;
+							finB = flux.bottom;
 						}
 						else if (j == 1) {
 							finY += flux.top;
+							finT = flux.top;
 						}
 						else if (i == -1) {
 							finX += flux.left;
+							finL = flux.left;
 						}
 						else if (i == 1) {
 							finX += flux.right;
+							finR = flux.right;
 						}
 					}
 				}
@@ -298,34 +313,28 @@ void calculateModelWaterHeights(float dt)
 
 			float currentWaterHeight = model.waterHeights[x][y];
 			float nextWaterHeight = currentWaterHeight + dt * ((finX + finY) - (foutX + foutY)) / (length * length);
-			if (x == 0 || y == 0 || x == model.size - 1 || y == model.size - 1)
-			{
-				model.velocities[x][y] = glm::vec2(0, 0);
+
+			float wX = (finR - foutL + foutR - finL) / 2;
+			float wY = (finT - foutB + foutT - finB) / 2;
+
+
+			float avgWaterHeight = (currentWaterHeight + nextWaterHeight) / 2;
+
+			float xVelocity = (wX / (length));
+			float yVelocity = (wY / (length));
+
+			if (abs(avgWaterHeight) < 1) {
+				xVelocity *= avgWaterHeight;
+				yVelocity *= avgWaterHeight;
 			}
 			else
 			{
-
-				float wX = (model.outflowFlux[x - 1][y].right - model.outflowFlux[x][y].left + model.outflowFlux[x][y].right - model.outflowFlux[x + 1][y].left) / 2;
-				float wY = (model.outflowFlux[x][y - 1].top - model.outflowFlux[x][y].bottom + model.outflowFlux[x][y].top - model.outflowFlux[x][y + 1].bottom) / 2;
-
-
-				float avgWaterHeight = (currentWaterHeight + nextWaterHeight) / 2;
-
-				float xVelocity = (wX / (length));
-				float yVelocity = (wY / (length));
-
-				if (abs(avgWaterHeight) < 1) {
-					xVelocity *= avgWaterHeight;
-					yVelocity *= avgWaterHeight;
-				}
-				else 
-				{
-					xVelocity /= avgWaterHeight;
-					yVelocity /= avgWaterHeight;
-				}
-
-				model.velocities[x][y] = glm::vec2(xVelocity, yVelocity);
+				xVelocity /= avgWaterHeight;
+				yVelocity /= avgWaterHeight;
 			}
+
+			model.velocities[x][y] = glm::vec2(xVelocity, yVelocity);
+
 			model.waterHeights[x][y] = nextWaterHeight;
 
 		}
@@ -348,24 +357,30 @@ void sedimentDeposition(float dt)
 				float diff = dt * 0.5f * (sedimentTransportCapacity - model.suspendedSedimentAmounts[x][y]);
 				model.terrainHeights[x][y] -= diff;
 				model.suspendedSedimentAmounts[x][y] += diff;
-				//model.waterHeights[x][y] += diff;				
 			}
 			else if (model.suspendedSedimentAmounts[x][y] > sedimentTransportCapacity)
 			{
 				float diff = dt * (model.suspendedSedimentAmounts[x][y] - sedimentTransportCapacity);
 				model.terrainHeights[x][y] += diff;
 				model.suspendedSedimentAmounts[x][y] -= diff;
-				//model.waterHeights[x][y] -= diff;
 			}
 		}
 	}
 }
 void transportSediments(float dt)
 {
+	float** temp = new float* [model.size];
+	for (int i = 0; i < model.size; i++)
+	{
+		temp[i] = new float[model.size];
+	}
+
 	for (int y = 0; y < model.size; y++)
 	{
 		for (int x = 0; x < model.size; x++)
 		{
+			temp[x][y] = model.suspendedSedimentAmounts[x][y];
+
 			float prevX = x - model.velocities[x][y].x * dt;
 			float prevY = y - model.velocities[x][y].y * dt;
 
@@ -375,23 +390,57 @@ void transportSediments(float dt)
 			x1 = prevX < 0 ? std::floor(prevX) : std::ceil(prevX);
 			y1 = prevY < 0 ? std::floor(prevY) : std::ceil(prevY);
 
-			/*float prevX = x - model.velocities[x][y].x * dt;
-			float prevY = y - model.velocities[x][y].y * dt;
-
-			int x1 = prevX < 0 ? x-1 : x+1;
-			int y1 = prevY < 0 ? y-1 : y+1;*/
-
-
 			if (model.getCell(x1, y1) != nullptr)
-				model.suspendedSedimentAmounts[x][y] = model.suspendedSedimentAmounts[x1][y1];
+				temp[x][y] = model.suspendedSedimentAmounts[x1][y1];
+		}
+	}
+
+	for (int y = 0; y < model.size; y++)
+	{
+		for (int x = 0; x < model.size; x++)
+		{
+			model.suspendedSedimentAmounts[x][y] = temp[x][y];
+		}
+		delete temp[y];
+	}
+
+	delete temp;
+}
+
+void sedimentSlippage(float dt)
+{
+	for (int y = 0; y < model.size; y++)
+	{
+		for (int x = 0; x < model.size; x++)
+		{
+			for (int j = -1; j <= 1; j++)
+			{
+				for (int i = -1; i <= 1; i++)
+				{
+					if (abs(i) == abs(j)) continue;
+					if (model.getCell(x - i, y - j) != nullptr) {
+						float dh =
+							(model.terrainHeights[x][y]) -
+							(model.terrainHeights[x - i][y - j]);
+						float talus = length * tanf(slippageAngle);
+						if (dh > talus)
+						{
+							float slippage = dt * (dh - talus);
+							model.terrainHeights[x][y] -= slippage;
+							model.terrainHeights[x - i][y - j] += slippage;
+						}
+					}
+				}
+			}
 		}
 	}
 }
+
 void evaporate(float dt)
 {
-	for (int y = 0; y < mapSize + 1; y++)
+	for (int y = 0; y < model.size; y++)
 	{
-		for (int x = 0; x < mapSize + 1; x++)
+		for (int x = 0; x < model.size; x++)
 		{
 			model.waterHeights[x][y] *= 1 - (simulationSpeed * evaporationRate * dt);
 		}
@@ -413,6 +462,8 @@ void updateModel(float dt)
 
 	transportSediments(dt);
 
+	sedimentSlippage(dt);
+
 	evaporate(dt);
 
 	terrainMesh->updateMeshFromHeights(&model.terrainHeights);
@@ -426,6 +477,8 @@ int main()
 
 	terrainMesh = new TerrainMesh(map.getheightMapSize(), &model.terrainHeights, mainShader);
 	waterMesh = new WaterMesh(map.getheightMapSize(), &model.terrainHeights, &model.waterHeights, waterShader);
+
+
 
 	map.saveHeightMapPPM("heightMap.ppm");
 
