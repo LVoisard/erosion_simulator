@@ -16,12 +16,17 @@ public:
 	void swapBuffers() { glfwSwapBuffers(glfwWindow); }
 	void pollEvents() { glfwPollEvents(); }
 	float getAspectRatio() { return (float)width / (float)height; }
+	float getWidth() { return width; }
+	float getHeight() { return height; }
 
 	void setCursorMode(int cursorMode) { glfwSetInputMode(glfwWindow, GLFW_CURSOR, cursorMode); }
 
 	bool getKey(int key) { return keys[key]; }
 	bool getKeyDown(int key) { return keysDown[key]; }
 	bool getKeyUp(int key) { return keysUp[key]; }
+
+	float getMousePosX() { return mousePosX; }
+	float getMousePosY() { return mousePosY; }
 
 	double getMouseDeltaX() { return mouseDeltaX; }
 	double getMouseDeltaY() { return mouseDeltaY; }

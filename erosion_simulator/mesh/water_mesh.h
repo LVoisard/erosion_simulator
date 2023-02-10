@@ -5,7 +5,7 @@
 class WaterMesh : public Mesh
 {
 public:
-	WaterMesh(int size, float*** waterFloor, float*** waterHeight, Shader shader);
+	WaterMesh(int width, int length, float*** waterFloor, float*** waterHeight, Shader shader);
 
 	void updateMeshFromHeights(float*** waterFloor, float*** waterHeight, glm::vec2*** waterVelocities);
 	void changeVerticesWaterHeight(float*** waterHeight);

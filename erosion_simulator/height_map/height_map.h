@@ -5,11 +5,14 @@
 class HeightMap
 {
 public:
-	HeightMap(int size, double minHeight, double maxHeight, double random);
+	HeightMap(double minHeight, double maxHeight);
+	void createProceduralHeightMap(int size, double random);
+	void loadHeightMapFromFile(std::string);
 	void setHeightRange(double minHeight, double maxHeight);
 	void setRandomRange(double random);
 	double** getHeightMap() { return heightMap; }
-	int getheightMapSize() { return size; }
+	int getWidth() { return width; }
+	int getLength() { return length; }
 	void printMap();
 	void changeSeed() {mapGenerator.seed(seedDistr(seedGenerator)); regenerateHeightMap(); }
 	void saveHeightMapPPM(std::string fileName);
@@ -19,6 +22,7 @@ public:
 
 
 private:
+	void init();
 	void generateHeightMap();
 	void regenerateHeightMap();
 	void squareStep(int chunkSize, int halfChunkSize);
@@ -26,7 +30,8 @@ private:
 
 	double** heightMap;
 
-	int size;
+	int width;
+	int length;
 
 	double minHeight;
 	double maxHeight;

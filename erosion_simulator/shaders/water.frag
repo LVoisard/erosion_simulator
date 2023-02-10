@@ -9,7 +9,7 @@ in float fragWaterHeight;
 in vec2 fragWaterVelocity;
 
 
-float minWaterHeight = 0.05;
+float minWaterHeight = 0.15;
 float minWaterOpacity = 0.3;
 
 float maxWaterHeight = 5.0;

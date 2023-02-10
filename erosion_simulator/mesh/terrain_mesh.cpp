@@ -1,15 +1,15 @@
 #include "terrain_mesh.h"
 
-TerrainMesh::TerrainMesh(int size, float*** terrainHeights, Shader shader)
-	:Mesh(size, shader)
+TerrainMesh::TerrainMesh(int width, int length, float*** terrainHeights, Shader shader)
+	:Mesh(width, length, shader)
 {
-	originalHeights = new float[size * size];
+	originalHeights = new float[width * length];
 
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			originalHeights[y * size + x] = (*terrainHeights)[x][y];
+			originalHeights[y * length + x] = (*terrainHeights)[x][y];
 		}
 	}
 
@@ -19,16 +19,16 @@ TerrainMesh::TerrainMesh(int size, float*** terrainHeights, Shader shader)
 	calculateNormals();
 }
 
-TerrainMesh::TerrainMesh(int size, HeightMap* heightMap, Shader shader)
-	:Mesh(size, shader)
+TerrainMesh::TerrainMesh(int width, int length, HeightMap* heightMap, Shader shader)
+	:Mesh(width, length, shader)
 {
-	originalHeights = new float[size * size];
+	originalHeights = new float[width * length];
 
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			originalHeights[y * size + x] = heightMap->samplePoint(x,y);
+			originalHeights[y * length + x] = heightMap->samplePoint(x,y);
 		}
 	}
 
@@ -54,22 +54,22 @@ void TerrainMesh::updateMeshFromHeights(float*** heights)
 
 void TerrainMesh::updateOriginalHeights()
 {
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			vertices[y * size + x].height = originalHeights[y * size + x];
+			vertices[y * length + x].height = originalHeights[y * length + x];
 		}
 	}
 }
 
 void TerrainMesh::updateOriginalHeights(float*** heights)
 {
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			originalHeights[y * size + x] = (*heights)[x][y];			
+			originalHeights[y * length + x] = (*heights)[x][y];
 		}
 	}
 }
@@ -98,7 +98,12 @@ void TerrainMesh::init()
 	glBindVertexArray(0);
 }
 
-glm::vec3 TerrainMesh::getNormalAtPosition(int x, int y)
+glm::vec3 TerrainMesh::getNormalAtIndex(int x, int y)
 {
-	return vertices[y * size + x].normal;
+	return vertices[y * length + x].normal;
+}
+
+glm::vec3 TerrainMesh::getPositionAtIndex(int x, int y)
+{
+	return vertices[y * length + x].pos;
 }

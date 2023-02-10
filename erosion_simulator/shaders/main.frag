@@ -17,6 +17,10 @@ int rock = 90;
 
 vec3 lightDirection = normalize(vec3(0.0,-1.0,0.0));
 
+uniform bool checkMousePos;
+uniform vec3 cursorOverTerrainPos;
+uniform float brushRadius;
+
 void main()
 {
 	// check slope angle and color
@@ -50,5 +54,11 @@ void main()
 
 	float diffuseFactor = max(dot(fragNormal, - lightDirection), 0.0);
 	vec4 diffuseColor = vec4(vec3(1.0, 1.0, 1.0) * 1.0 * diffuseFactor, 1.0);
+
 	FragColor = ambientColor * diffuseColor;
+	if(length((fragPos - cursorOverTerrainPos)) < brushRadius) {
+		FragColor = clamp(FragColor + vec4(0.25), vec4(0.0), vec4(1.0));
+	}
+
+
 }

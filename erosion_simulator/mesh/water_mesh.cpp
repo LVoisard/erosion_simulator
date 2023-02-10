@@ -3,8 +3,8 @@
 #include "shader/shader.h"
 #include "mesh.h"
 
-WaterMesh::WaterMesh(int size, float*** waterFloor, float*** waterHeight, Shader shader)
-	:Mesh(size, shader)
+WaterMesh::WaterMesh(int width, int length, float*** waterFloor, float*** waterHeight, Shader shader)
+	:Mesh(width, length, shader)
 {	
 	calculateVertices(waterFloor);
 	changeVerticesWaterHeight(waterHeight);
@@ -25,22 +25,22 @@ void WaterMesh::updateMeshFromHeights(float*** waterFloor, float*** waterHeight,
 
 void WaterMesh::changeVerticesWaterHeight(float*** waterHeight)
 {
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			vertices[y * size + x].height = (*waterHeight)[x][y];
+			vertices[y * length + x].height = (*waterHeight)[x][y];
 		}
 	}
 }
 
 void WaterMesh::changeVerticesWaterVelocities(glm::vec2*** waterVelocities)
 {
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
-			vertices[y * size + x].velocity = (*waterVelocities)[x][y];
+			vertices[y * length + x].velocity = (*waterVelocities)[x][y];
 		}
 	}
 }
@@ -73,17 +73,17 @@ void WaterMesh::init()
 
 void WaterMesh::calculateNormals()
 {
-	for (int y = 1; y < (size - 1); y++)
+	for (int y = 1; y < (length - 1); y++)
 	{
-		for (int x = 1; x < (size - 1); x++)
+		for (int x = 1; x < (width - 1); x++)
 		{
-			glm::vec3 center = vertices[y * size + x].pos + vertices[y * size + x].height;
+			glm::vec3 center = vertices[y * length + x].pos + vertices[y * length + x].height;
 
-			glm::vec3 right = vertices[y * size + x + 1].pos + vertices[y * size + x + 1].height;
-			glm::vec3 up = vertices[(y + 1) * size + x].pos + vertices[(y + 1) * size + x].height;
+			glm::vec3 right = vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height;
+			glm::vec3 up = vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height;
 
-			glm::vec3 left = vertices[y * size + x - 1].pos + vertices[y * size + x - 1].height;
-			glm::vec3 bottom = vertices[(y - 1) * size + x].pos + vertices[(y - 1) * size + x].height;
+			glm::vec3 left = vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height;
+			glm::vec3 bottom = vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height;
 
 
 			glm::vec3 v1 = normalize(right - center);
@@ -111,7 +111,7 @@ void WaterMesh::calculateNormals()
 				normal = smallestYNorm;
 			}*/
 
-			vertices[y * size + x].normal = glm::normalize(normal);
+			vertices[y * length + x].normal = glm::normalize(normal);
 		}
 	}
 }

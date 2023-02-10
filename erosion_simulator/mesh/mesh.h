@@ -16,8 +16,8 @@ struct Vertex
 class Mesh
 {
 public:
-	Mesh(int size, Shader shader);
-	Mesh(int size, Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount, Shader shader);
+	Mesh(int width, int length, Shader shader);
+	Mesh(int width, int length, Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount, Shader shader);
 	~Mesh();
 	virtual void init();
 	void draw();
@@ -31,7 +31,7 @@ public:
 	uint32_t indexCount = 0;
 	Shader shader;
 protected:
-	int size;
+	int width, length;
 	virtual void calculateVertices(HeightMap* map);
 	virtual void calculateVertices(float*** height);
 	virtual void calculateIndices();

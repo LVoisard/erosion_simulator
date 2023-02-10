@@ -2,16 +2,16 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-Mesh::Mesh(int size, Shader shader)
-	:size(size), shader(shader)
+Mesh::Mesh(int width, int length, Shader shader)
+	: width(width), length(length), shader(shader)
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &VBO);
 }
 
-Mesh::Mesh(int size, Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount, Shader shader):
-	size(size), vertices(vertices), vertexCount(vertexCount), indices(indices), indexCount(indexCount), shader(shader)
+Mesh::Mesh(int width, int length, Vertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount, Shader shader)
+	: width(width), length(length), vertices(vertices), vertexCount(vertexCount), indices(indices), indexCount(indexCount), shader(shader)
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &EBO);
@@ -78,51 +78,51 @@ void Mesh::draw()
 
 void Mesh::calculateVertices(HeightMap* map)
 {
-	vertexCount = size * size;
+	vertexCount = width * length;
 	vertices = new Vertex[vertexCount];
 
-	for (int z = 0; z < size; z++) {
-		for (int x = 0; x < size; x++) {
+	for (int z = 0; z < length; z++) {
+		for (int x = 0; x < width; x++) {
 			Vertex v{};
-			v.pos = glm::vec3(x - size / 2, map->samplePoint(x, z), z - size / 2);
+			v.pos = glm::vec3(x - width / 2, map->samplePoint(x, z), z - length / 2);
 			v.normal = v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
-			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
-			vertices[z * size + x] = v;
+			v.uv = glm::vec2((float)x / width, (float)z / length) / (10.0f / width);
+			vertices[z * length + x] = v;
 		}
 	}
 }
 
 void Mesh::calculateVertices(float*** height)
 {
-	vertexCount = size * size;
+	vertexCount = width * length;
 	vertices = new Vertex[vertexCount];
 
-	for (int z = 0; z < size; z++) {
-		for (int x = 0; x < size; x++) {
+	for (int z = 0; z < length; z++) {
+		for (int x = 0; x < width; x++) {
 			Vertex v{};
-			v.pos = glm::vec3(x - size / 2, (*height)[x][z], z - size / 2);
+			v.pos = glm::vec3(x - width / 2, (*height)[x][z], z - length / 2);
 			v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
-			v.uv = glm::vec2((float)x / size, (float)z / size) / (10.0f / size);
-			vertices[z * size + x] = v;
+			v.uv = glm::vec2((float)x / width, (float)z / length) / (10.0f / width);
+			vertices[z * length + x] = v;
 		}
 	}
 }
 
 void Mesh::calculateIndices()
 {
-	indexCount = (size - 1) * (size - 1) * 6;
+	indexCount = (width - 1) * (length - 1) * 6;
 	indices = new uint32_t[indexCount];
 	int indicesIndex = 0;
-	for (int z = 0; z < (size - 1); z++) {
-		for (int x = 0; x < (size - 1); x++) {
-			indices[indicesIndex + z * (size - 1) + x] = z * size + x; // 0
-			indices[indicesIndex + z * (size - 1) + x + 1] = (z + 1) * size + x; // 2
-			indices[indicesIndex + z * (size - 1) + x + 2] = z * size + x + 1; // 1
+	for (int z = 0; z < (length - 1); z++) {
+		for (int x = 0; x < (width - 1); x++) {
+			indices[indicesIndex + z * (length - 1) + x] = z * length + x; // 0
+			indices[indicesIndex + z * (length - 1) + x + 1] = (z + 1) * length + x; // 2
+			indices[indicesIndex + z * (length - 1) + x + 2] = z * length + x + 1; // 1
 
 			// top triangle
-			indices[indicesIndex + z * (size - 1) + x + 3] = (z + 1) * size + x + 1; // 3
-			indices[indicesIndex + z * (size - 1) + x + 4] = z * size + x + 1; // 1
-			indices[indicesIndex + z * (size - 1) + x + 5] = (z + 1) * size + x; // 2
+			indices[indicesIndex + z * (length - 1) + x + 3] = (z + 1) * length + x + 1; // 3
+			indices[indicesIndex + z * (length - 1) + x + 4] = z * length + x + 1; // 1
+			indices[indicesIndex + z * (length - 1) + x + 5] = (z + 1) * length + x; // 2
 
 			indicesIndex += 5;
 		}
@@ -131,19 +131,19 @@ void Mesh::calculateIndices()
 
 void Mesh::calculateNormals()
 {
-	for (int y = 0; y < size; y++)
+	for (int y = 0; y < length; y++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int x = 0; x < width; x++)
 		{
 			// i used to have 4 adjacent tiles, but used this 8 adjacent instead
 			// costs more but looks better and is more accurate for erosion
 			// https://stackoverflow.com/questions/44120220/calculating-normals-on-terrain-mesh
-			glm::vec3 center = vertices[y * size + x].pos;
+			glm::vec3 center = vertices[y * length + x].pos;
 
-			glm::vec3 top = y == size - 1 ? glm::vec3(0) : vertices[(y + 1) * size + x].pos;
-			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * size + x].pos;
-			glm::vec3 right = x == size - 1 ? glm::vec3(0) : vertices[y * size + x + 1].pos;
-			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * size + x - 1].pos;
+			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos;
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos;
+			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos;
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos;
 
 			glm::vec3 v1 = normalize(right - center);
 			glm::vec3 v2 = normalize(top - center);
@@ -157,7 +157,7 @@ void Mesh::calculateNormals()
 
 			glm::vec3 normal = glm::vec3(0);
 			
-			if (x == 0 || x == size - 1 || y == 0 || y == size - 1)
+			if (x == 0 || x == width - 1 || y == 0 || y == length - 1)
 			{
 				if (top == glm::vec3(0))
 				{
@@ -194,7 +194,7 @@ void Mesh::calculateNormals()
 				normal = normal1 + normal2 + normal3 + normal4;
 			}
 
-			vertices[y * size + x].normal = glm::normalize(normal);
+			vertices[y * length + x].normal = glm::normalize(normal);
 		}
 	}
 }
@@ -220,10 +220,9 @@ void Mesh::updateMeshFromHeights(float*** heights)
 void Mesh::update()
 {
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);	
-	void* data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	memcpy(data, vertices, sizeof(vertices[0]) * vertexCount);
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-
+		void* data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		memcpy(data, vertices, sizeof(vertices[0]) * vertexCount);
+		glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 

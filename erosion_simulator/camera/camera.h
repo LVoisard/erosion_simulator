@@ -11,6 +11,9 @@ public:
 	Camera(Window* window, float speed, float xSensitivity, float ySensitivity);
 	void update(float dt);
 	glm::vec3 getPosition() { return position; }
+	glm::vec3 getLookAt() { return lookAt; }
+	glm::vec3 getUp() { return up; }
+	glm::vec3 getRight() { return right; }
 
 	glm::mat4 getViewMatrix() { return glm::lookAt(position, position + lookAt, worldUp); }
 private:

@@ -4,14 +4,54 @@
 #include <vector>
 #include <iostream>
 
+#include "external/stb_image.h"
 
-HeightMap::HeightMap(int size, double minHeight, double maxHeight, double random)
-	:size(size + 1), minHeight(minHeight), maxHeight(maxHeight), random(random)
+
+HeightMap::HeightMap(double minHeight, double maxHeight)
+	:minHeight(minHeight), maxHeight(maxHeight)
 {
+}
+
+void HeightMap::createProceduralHeightMap(int size, double random)
+{
+	this->width = size + 1;
+	this->length = size + 1;
+	this->random = random;
 	seedDistr = std::uniform_int_distribution<int>(INT_MIN, INT_MAX);
 	heightDistr = std::uniform_real_distribution<>(minHeight, maxHeight);
 	randomDistr = std::uniform_real_distribution<>(-random, random);
 	generateHeightMap();
+}
+
+void HeightMap::loadHeightMapFromFile(std::string fileName)
+{
+	int width, height, channels;
+	unsigned char* img = stbi_load(fileName.c_str(), &width, &height, &channels, 1);
+	if (img == NULL) {
+		throw "Error reading the image";
+	}
+	printf("loaded heigthmap from file");
+
+	this->width = width;
+	this->length = height;
+
+	heightMap = new double* [width];
+	for (int i = 0; i < width; i++) {
+		heightMap[i] = new double[height];
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+			const stbi_uc* p = img + (y * height + x);
+			
+			float h = p[0] / 255.0f * maxHeight;
+			heightMap[x][y] = h;
+		}
+	}
+
+	stbi_image_free(img);
 }
 
 void HeightMap::setHeightRange(double minHeight, double maxHeight)
@@ -31,8 +71,8 @@ void HeightMap::setRandomRange(double random)
 
 void HeightMap::printMap()
 {
-	for (int y = 0; y < size; y++) {
-		for (int x = 0; x < size; x++) {
+	for (int y = 0; y < length; y++) {
+		for (int x = 0; x < width; x++) {
 			if (heightMap[x][y] > 0)
 				std::cout << heightMap[x][y] << " ";
 			else
@@ -45,23 +85,28 @@ void HeightMap::printMap()
 
 void HeightMap::saveHeightMapPPM(std::string fileName)
 {
-	std::vector<double> buffer(3 * size * size);
+	std::vector<double> buffer(3 * width * length);
 
-	for (int y = 0; y < size; y++) {
-		for (int x = 0; x < size; x++) {
+	for (int y = 0; y < length; y++) {
+		for (int x = 0; x < width; x++) {
 			double color = getRGBA(x, y);
-			buffer[3 * y * size + 3 * x + 0] = color;
-			buffer[3 * y * size + 3 * x + 1] = color;
-			buffer[3 * y * size + 3 * x + 2] = color;
+			buffer[3 * y * length + 3 * x + 0] = color;
+			buffer[3 * y * length + 3 * x + 1] = color;
+			buffer[3 * y * length + 3 * x + 2] = color;
 		}
 	}
 
-	save_ppm(fileName, buffer, size, size);
+	save_ppm(fileName, buffer, width, length);
 	buffer.clear();
 }
 
 void HeightMap::generateHeightMap()
 {
+	if (width != length)
+		throw std::exception("Width and Lenght of the heightmap do not match");
+
+	int size = width;
+
 	heightMap = new double* [size];
 	for (int i = 0; i < size; i++) {
 		heightMap[i] = new double[size];
@@ -88,6 +133,10 @@ void HeightMap::generateHeightMap()
 
 void HeightMap::regenerateHeightMap()
 {
+	if (width != length)
+		throw std::exception("Width and Lenght of the heightmap do not match");
+
+	int size = width;
 	for (int i = 0; i < size; i++) {
 		delete heightMap[i];
 	}
@@ -97,6 +146,10 @@ void HeightMap::regenerateHeightMap()
 
 void HeightMap::squareStep(int chunkSize, int halfChunkSize)
 {
+	if (width != length)
+		throw std::exception("Width and Lenght of the heightmap do not match");
+
+	int size = width;
 	for (int x = 0; x < size - 1; x += chunkSize)
 	{
 		for (int y = 0; y < size - 1; y += chunkSize)
@@ -110,6 +163,10 @@ void HeightMap::squareStep(int chunkSize, int halfChunkSize)
 
 void HeightMap::diamondStep(int chunkSize, int halfChunkSize)
 {
+	if (width != length)
+		throw std::exception("Width and Lenght of the heightmap do not match");
+
+	int size = width;
 	for (int x = 0; x < size - 1; x += halfChunkSize)
 	{
 		for (int y = (x + halfChunkSize) % chunkSize; y < size - 1; y += chunkSize)
