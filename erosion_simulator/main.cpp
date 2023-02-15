@@ -115,6 +115,10 @@ Shader mainShader("shaders/main.vert", "shaders/main.frag");
 Shader waterShader("shaders/water.vert", "shaders/water.frag");
 Camera camera(&window, 5.0f, .25f, .5f);
 
+Shader computeShader = Shader("shaders/simulation.comp");
+Texture testTexture = Texture(2048, 2048);
+
+
 Texture grassTexture("textures/grass.jpg");
 Texture sandTexture("textures/sand.jpg");
 Texture rockTexture("textures/rock.jpg");
@@ -565,6 +569,7 @@ void updateModel(float dt)
 
 int main()
 {
+
 	map.createProceduralHeightMap(mapSize, random);
 	//map.loadHeightMapFromFile("C:\\Users\\laure\\Downloads\\output-onlinepngtools.png");
 
@@ -582,6 +587,8 @@ int main()
 
 	glm::mat4 proj = glm::mat4(1.0f);
 	proj = glm::perspective(glm::radians(fov), window.getAspectRatio(), 0.1f, 1000.0f);
+
+	
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	while (!window.shouldWindowClose())
@@ -653,8 +660,15 @@ int main()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		
+		computeShader.use();
+		computeShader.setUniformFloat("deltaTime", &deltaTime);
+		glDispatchCompute((GLuint)2048, (GLuint)2048, (GLuint)1);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+
 		glm::mat4 model = glm::mat4(1.0f);
-		glm::mat4 view = camera.getViewMatrix();
+		glm::mat4 view = camera.getViewMatrix();		
 
 		skybox.DrawSkybox(view, proj);
 
@@ -669,7 +683,8 @@ int main()
 
 
 		mainShader.setTexture("texture0", 0);
-		grassTexture.use(GL_TEXTURE0);
+		testTexture.use();
+		//grassTexture.use(GL_TEXTURE0);
 		mainShader.setTexture("texture1", 1);
 		sandTexture.use(GL_TEXTURE1);
 		mainShader.setTexture("texture2", 2);
@@ -688,6 +703,7 @@ int main()
 
 		waterMesh->draw();
 		waterShader.stop();
+
 
 		window.swapBuffers();
 		window.updateInput();

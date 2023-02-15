@@ -6,6 +6,41 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+Shader::Shader(const char* computeShaderPath)
+{
+    ID = glCreateProgram();
+
+    if (!ID)
+    {
+        printf("Error creating the shader");
+        return;
+    }
+
+    std::string vertexCode = readFile(computeShaderPath);
+
+    addShader(vertexCode.c_str(), GL_COMPUTE_SHADER);
+
+    int success = 0;
+    char infoLog[1024];
+
+    glLinkProgram(ID);
+    glGetProgramiv(ID, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(ID, 1024, NULL, infoLog);
+        printf("Error liking program: '%s'\n", infoLog);
+        return;
+    }
+
+    glValidateProgram(ID);
+    glGetProgramiv(ID, GL_VALIDATE_STATUS, &success);
+    if (!success)
+    {
+        glGetProgramInfoLog(ID, sizeof(infoLog), NULL, infoLog);
+        printf("Error validating program: '%s'\n", infoLog);
+        return;
+    }
+}
+
 Shader::Shader(const char* vertexShaderFilePath, const char* fragmentShaderFilePath)
 {
     ID = glCreateProgram();

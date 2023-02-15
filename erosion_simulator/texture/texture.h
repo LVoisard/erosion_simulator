@@ -5,6 +5,7 @@ class Texture
 {
 public:
 	Texture(const char* textureFilePath);
+	Texture(const unsigned int width, const unsigned int height);
 
 	void use();
 	void use(int activeTexture);

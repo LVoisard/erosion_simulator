@@ -91,5 +91,6 @@
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\water.vert" />
     <None Include="shaders\water.frag" />
+    <None Include="shaders\simulation.comp" />
   </ItemGroup>
 </Project>
