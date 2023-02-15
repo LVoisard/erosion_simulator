@@ -20,6 +20,15 @@
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
+enum PaintMode
+{
+	WATER_ADD,
+	WATER_REMOVE,
+	TERRAIN_ADD,
+	TERRAIN_REMOVE,
+	COUNT,
+};
+
 struct FlowFlux
 {
 	float left;
@@ -152,7 +161,7 @@ float gravitationalAcc = 9.807f;
 float length = 1.0f;
 float area = length * length;
 
-float sedimentCapacity = 0.1f;
+float sedimentCapacity = 0.5f;
 float slippageAngle = glm::radians(45.0f);
 
 bool useSedimentSlippage = false;
@@ -167,18 +176,22 @@ bool castRays = false;
 glm::vec3 cursorOverPosition = glm::vec3(INT_MIN);
 float brushRadius = 5.0f;
 float brushIntensity = 25.0f;
+PaintMode paintMode = WATER_ADD;
 
 void raycastThroughScene()
 {
-	float pixelSize = (2 * tanf(fov / 2) / window.getHeight());
-	glm::vec3 A = camera.getLookAt();
+	float pixelSize = (2 * tanf(fov) / 2 / window.getHeight());
+	glm::vec3 A = camera.getPosition() - camera.getLookAt();
 	glm::vec3 up = camera.getUp();
 	glm::vec3 right = camera.getRight();
-	glm::vec3 B = (A + tanf(fov / 2) * up);
+	glm::vec3 B = (A + tanf(fov) / 2 * up);
 	glm::vec3 C = B - (window.getWidth() / 2 * pixelSize * right);
 
-	glm::vec3 direction = glm::normalize(C + ((window.getMousePosX() * pixelSize + pixelSize / 2.0f) * camera.getRight()) - ((window.getMousePosY() * pixelSize + pixelSize / 2.0f) * camera.getUp()));
-	// printf("direction: %f %f %f \n", direction.x, direction.y, direction.z);
+	glm::vec3 direction = glm::normalize(
+		C + 
+		((window.getMousePosX() * pixelSize + pixelSize / 2.0f) * camera.getRight()) - 
+		((window.getMousePosY() * pixelSize + pixelSize / 2.0f) * camera.getUp() + camera.getPosition()));
+	
 	cursorOverPosition = glm::vec3(INT_MIN);
 
 	for (int i = 0; i < terrainMesh->indexCount; i += 3)
@@ -198,7 +211,6 @@ void raycastThroughScene()
 
 		if (Sbc >= 0 && Sca >= 0 && Sab >= 0)
 		{
-			printf("hit: %f %f %f \n", P.x,P.y, P.z);
 			cursorOverPosition = P;
 			return;
 		}
@@ -239,7 +251,7 @@ void resetModel()
 	terrainMesh->updateMeshFromHeights(&model->terrainHeights);
 	waterMesh->updateMeshFromHeights(&model->terrainHeights, &model->waterHeights, &model->velocities);
 }
-void addWater(float dt) {
+void addPrecipitation(float dt) {
 	if (isRaining) {
 		for (int y = 0; y < model->length; y++)
 		{
@@ -249,8 +261,9 @@ void addWater(float dt) {
 					model->waterHeights[x][y] += dt * rainIntensity * simulationSpeed;
 			}
 		}
-	}
-
+	}	
+}
+void paint(float dt) {
 	if (window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT))
 	{
 		for (int y = 0; y < model->length; y++)
@@ -259,7 +272,26 @@ void addWater(float dt) {
 			{
 				glm::vec3 mapPos = terrainMesh->getPositionAtIndex(x, y);
 				if (glm::length(cursorOverPosition - mapPos) < brushRadius)
-					model->waterHeights[x][y] += dt * brushIntensity;
+				{
+					switch (paintMode)
+					{
+					case WATER_ADD:
+						model->waterHeights[x][y] += dt * brushIntensity; 
+						break;
+					case WATER_REMOVE:
+						model->waterHeights[x][y] -= dt * brushIntensity;
+						model->waterHeights[x][y] = std::max(model->waterHeights[x][y], 0.0f);
+						break;
+					case TERRAIN_ADD:
+						model->terrainHeights[x][y] += dt * brushIntensity * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						break;
+					case TERRAIN_REMOVE:
+						model->terrainHeights[x][y] -= dt * brushIntensity * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						break;
+					default:
+						throw std::exception("invalid paint mode");
+					}
+				}
 			}
 		}
 	}
@@ -506,8 +538,10 @@ void evaporate(float dt)
 }
 void updateModel(float dt)
 {
+	paint(dt);
+
 	// each frame, water should uniformly increment accross the grid
-	addWater(dt);
+	addPrecipitation(dt);
 
 	// then calculate the outflow of water to other cells
 	calculateModelOutflowFlux(dt);
@@ -560,6 +594,8 @@ int main()
 		// disable until update all meshes is done
 		if (window.getKeyDown(GLFW_KEY_SPACE)) {
 			castRays = !castRays;
+			if(!castRays)
+				cursorOverPosition = glm::vec3(INT_MIN);
 		}
 
 		if (window.getKeyDown(GLFW_KEY_R)) {
@@ -582,15 +618,38 @@ int main()
 			printf("%s Velocity Debugging\n", debugWaterVelocity ? "Enabled" : "Disabled");
 		}
 
+		if (window.getKeyDown(GLFW_KEY_TAB)) {
+			int current = (int)paintMode;
+			if (current >= COUNT - 1)
+				paintMode = static_cast<PaintMode>(0);
+			else
+				paintMode = static_cast<PaintMode>(current + 1);
+		}
+
 		if (isModelRunning)
 		{
 			updateModel(deltaTime);
 		}
 
+		if (window.getMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
+		{
+			camera.toggleViewMode();
+			if (camera.inFreeView())
+				cursorOverPosition = glm::vec3(INT_MIN);
+		}
+
+		if (window.getMouseScrollY() != 0 && !camera.inFreeView())
+		{
+			brushRadius += window.getMouseScrollY();
+			brushRadius = std::clamp(brushRadius, 1.0f, 50.0f);
+		}
+
 		camera.update(deltaTime);
 
-		if (castRays)
+		if (castRays && !camera.inFreeView())
 			raycastThroughScene();
+
+		
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

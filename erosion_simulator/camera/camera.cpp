@@ -7,11 +7,6 @@ Camera::Camera(Window* window, float speed, float xSensitivity, float ySensitivi
 
 void Camera::update(float dt)
 {
-	if (window->getMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT)) {
-		inFreeview = !inFreeview;
-		window->setCursorMode(inFreeview ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-	}
-
 	if (!inFreeview) return;
 
 	if (window->getKey(GLFW_KEY_W))

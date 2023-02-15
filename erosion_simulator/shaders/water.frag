@@ -81,7 +81,7 @@ void main()
 	else
 	{
 		vec4 base = vec4(baseColor, 1.0);
-		if(fragWaterHeight < minWaterHeight + 0.005)
+		if(fragWaterHeight < minWaterHeight + 0.01)
 			base += vec4(1) * (1 - alpha);
 		fragColor = clamp(base * (diffuseColor + specularColor), vec4(0), vec4(1));
 		fragColor.a = alpha;

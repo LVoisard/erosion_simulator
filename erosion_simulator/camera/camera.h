@@ -15,6 +15,8 @@ public:
 	glm::vec3 getUp() { return up; }
 	glm::vec3 getRight() { return right; }
 
+	void toggleViewMode() { inFreeview = !inFreeview; window->setCursorMode(inFreeview ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);}
+	bool inFreeView() { return inFreeview; }
 	glm::mat4 getViewMatrix() { return glm::lookAt(position, position + lookAt, worldUp); }
 private:
 	Window* window;

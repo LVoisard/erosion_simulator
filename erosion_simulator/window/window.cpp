@@ -11,7 +11,7 @@ void Window::init()
 {
     glfwInit();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -137,6 +137,11 @@ void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 // ---------------------------------------------------------------------------------------------
 void Window::framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
+    Window* currentWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    currentWindow->width = width;
+    currentWindow->height = height;
+    currentWindow->bufferWidth = width;
+    currentWindow->bufferHeight = height;
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
