@@ -1,7 +1,10 @@
 #pragma once
-
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
+#include "erosion_model.h"
 
 class Window
 {
@@ -36,7 +39,10 @@ public:
 	double getMouseButtonUp(int button) { return mouseButtonsUp[button]; }
 
 	double getMouseScrollY() { return mouseScrollY; }
-
+	
+	
+	void Menu(ErosionModel*);
+	void IMGuiTest();
 private:
 	int width;
 	int height;
@@ -66,6 +72,8 @@ private:
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 	static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 	static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
+
 
 };
 

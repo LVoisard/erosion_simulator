@@ -11,11 +11,15 @@
 #include <chrono>
 #include <mesh/water_mesh.h>
 
+
 #include <iostream>
 
 #include <random>
+#include "imgui.h"
 
 #define GLM_FORCE_RADIANS
+const float GRAVITY_ACCELERATION = 9.807f;
+
 
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
@@ -29,85 +33,6 @@ enum PaintMode
 	COUNT,
 };
 
-struct FlowFlux
-{
-	float left;
-	float right;
-	float top;
-	float bottom;
-
-	FlowFlux() {
-		left = 0.0f;
-		right = 0.0f;
-		top = 0.0f;
-		bottom = 0.0f;
-	}
-
-	float getTotal() {
-		return left + right + top + bottom;
-	}
-};
-
-struct ErosionCell
-{
-	float terrainHeight; // b
-	float waterHeight; // d
-	float suspendedSedimentAmount; // s
-	FlowFlux outflowFlux; // f
-	glm::vec2 velocity; // v
-	float terrainHardness;
-};
-
-struct ErosionModel
-{
-	int width;
-	int length;
-
-	float** terrainHeights; // b
-	float** waterHeights; // d
-	float** suspendedSedimentAmounts; // s
-	FlowFlux** outflowFlux; // f
-	glm::vec2** velocities; // v
-	float** terrainHardness;
-
-	ErosionModel(int width, int length)
-		: width(width), length(length) {
-		this->terrainHeights = new float* [this->width];
-		this->waterHeights = new float* [this->width];
-		this->suspendedSedimentAmounts = new float* [this->width];
-		this->outflowFlux = new FlowFlux * [this->width];
-		this->velocities = new glm::vec2 * [this->width];
-		this->terrainHardness = new float* [this->width];
-
-		for (int i = 0; i < width; i++)
-		{
-			this->terrainHeights[i] = new float[this->length];
-			this->waterHeights[i] = new float[this->length];
-			this->suspendedSedimentAmounts[i] = new float[this->length];
-			this->outflowFlux[i] = new FlowFlux[this->length];
-			this->velocities[i] = new glm::vec2[this->length];
-			this->terrainHardness[i] = new float[this->length];
-
-		}
-	}
-
-	ErosionCell* getCell(int x, int y) {
-		if (x < 0 || x >= width || y < 0 || y >= length)
-			return nullptr;
-
-		ErosionCell cell{
-			terrainHeights[x][y],
-			waterHeights[x][y],
-			suspendedSedimentAmounts[x][y],
-			outflowFlux[x][y],
-			velocities[x][y],
-			terrainHardness[x][y],
-		};
-		return &cell;
-
-	}
-};
-
 float waterflowRate = 0.1f;
 
 Window window(SCR_WIDTH, SCR_HEIGHT);
@@ -118,6 +43,7 @@ Camera camera(&window, 5.0f, .25f, .5f);
 Texture grassTexture("textures/grass.jpg");
 Texture sandTexture("textures/sand.jpg");
 Texture rockTexture("textures/rock.jpg");
+Texture waterNormalTexture("textures/water-normal-map.jpg");
 
 std::vector<std::string> skyboxFacesLocation{
 	"textures/skybox/px.png",
@@ -137,39 +63,17 @@ Skybox skybox(skyboxFacesLocation);
 //2 ^ n
 int mapSize = 256;
 float minHeight = 0;
-float maxHeight = 0;
-float random = 15;
+float maxHeight = 100;
+float random = 2;
 HeightMap map(minHeight, maxHeight);
 
 TerrainMesh* terrainMesh;
 WaterMesh* waterMesh;
 
-ErosionModel* model;
+ErosionModel* erosionModel;
 
 std::default_random_engine gen;
 std::uniform_int_distribution<> distr;
-
-float simulationSpeed = 1.0f;
-
-float rainIntensity = 1.0f;
-float rainAmount = 1.0f;
-float evaporationRate = 0.02f;
-
-float fluidDensity = 1.0f;
-// dont know if there should be more
-float gravitationalAcc = 9.807f;
-float length = 1.0f;
-float area = length * length;
-
-float sedimentCapacity = 0.5f;
-float slippageAngle = glm::radians(45.0f);
-
-bool useSedimentSlippage = false;
-
-bool isRaining = false;
-bool isModelRunning = false;
-
-bool debugWaterVelocity = false;
 
 float fov = 90.0f;
 bool castRays = false;
@@ -219,46 +123,46 @@ void raycastThroughScene()
 
 void initModel()
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			model->terrainHeights[x][y] = map.samplePoint(x, y);
-			model->waterHeights[x][y] = 0.0f;
-			model->suspendedSedimentAmounts[x][y] = 0.0f;
-			model->outflowFlux[x][y] = FlowFlux{};
-			model->velocities[x][y] = glm::vec2(0.0f);
-			model->terrainHardness[x][y] = 0.1f;
+			erosionModel->terrainHeights[x][y] = map.samplePoint(x, y);
+			erosionModel->waterHeights[x][y] = 0.0f;
+			erosionModel->suspendedSedimentAmounts[x][y] = 0.0f;
+			erosionModel->outflowFlux[x][y] = FlowFlux{};
+			erosionModel->velocities[x][y] = glm::vec2(0.0f);
+			erosionModel->terrainHardness[x][y] = 0.1f;
 		}
 	}
 }
 void resetModel()
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			model->terrainHeights[x][y] = map.samplePoint(x, y);
-			model->waterHeights[x][y] = 0.0f;
-			model->suspendedSedimentAmounts[x][y] = 0.0f;
-			model->outflowFlux[x][y] = FlowFlux{};
-			model->velocities[x][y] = glm::vec2(0.0f);
-			model->terrainHardness[x][y] = 0.1f;
+			erosionModel->terrainHeights[x][y] = map.samplePoint(x, y);
+			erosionModel->waterHeights[x][y] = 0.0f;
+			erosionModel->suspendedSedimentAmounts[x][y] = 0.0f;
+			erosionModel->outflowFlux[x][y] = FlowFlux{};
+			erosionModel->velocities[x][y] = glm::vec2(0.0f);
+			erosionModel->terrainHardness[x][y] = 0.1f;
 		}
 	}
 
-	terrainMesh->updateOriginalHeights(&model->terrainHeights);
-	terrainMesh->updateMeshFromHeights(&model->terrainHeights);
-	waterMesh->updateMeshFromHeights(&model->terrainHeights, &model->waterHeights, &model->velocities);
+	terrainMesh->updateOriginalHeights(&erosionModel->terrainHeights);
+	terrainMesh->updateMeshFromHeights(&erosionModel->terrainHeights);
+	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities);
 }
 void addPrecipitation(float dt) {
-	if (isRaining) {
-		for (int y = 0; y < model->length; y++)
+	if (erosionModel->isRaining) {
+		for (int y = 0; y < erosionModel->length; y++)
 		{
-			for (int x = 0; x < model->width; x++)
+			for (int x = 0; x < erosionModel->width; x++)
 			{
-				if (distr(gen) <= rainAmount * mapSize)
-					model->waterHeights[x][y] += dt * rainIntensity * simulationSpeed;
+				if (distr(gen) <= erosionModel->rainAmount * mapSize)
+					erosionModel->waterHeights[x][y] += dt * erosionModel->rainIntensity * erosionModel->simulationSpeed;
 			}
 		}
 	}	
@@ -266,27 +170,27 @@ void addPrecipitation(float dt) {
 void paint(float dt) {
 	if (window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT))
 	{
-		for (int y = 0; y < model->length; y++)
+		for (int y = 0; y < erosionModel->length; y++)
 		{
-			for (int x = 0; x < model->width; x++)
+			for (int x = 0; x < erosionModel->width; x++)
 			{
 				glm::vec3 mapPos = terrainMesh->getPositionAtIndex(x, y);
-				if (glm::length(cursorOverPosition - mapPos) < brushRadius)
+				if (glm::length(glm::vec2(cursorOverPosition.x, cursorOverPosition.z) - glm::vec2(mapPos.x, mapPos.z)) < brushRadius)
 				{
 					switch (paintMode)
 					{
 					case WATER_ADD:
-						model->waterHeights[x][y] += dt * brushIntensity; 
+						erosionModel->waterHeights[x][y] += dt * brushIntensity; 
 						break;
 					case WATER_REMOVE:
-						model->waterHeights[x][y] -= dt * brushIntensity;
-						model->waterHeights[x][y] = std::max(model->waterHeights[x][y], 0.0f);
+						erosionModel->waterHeights[x][y] -= dt * brushIntensity;
+						erosionModel->waterHeights[x][y] = std::max(erosionModel->waterHeights[x][y], 0.0f);
 						break;
 					case TERRAIN_ADD:
-						model->terrainHeights[x][y] += dt * brushIntensity * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						erosionModel->terrainHeights[x][y] += dt * brushIntensity;// *(1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
 					case TERRAIN_REMOVE:
-						model->terrainHeights[x][y] -= dt * brushIntensity * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						erosionModel->terrainHeights[x][y] -= dt * brushIntensity;//  * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
 					default:
 						throw std::exception("invalid paint mode");
@@ -298,9 +202,9 @@ void paint(float dt) {
 }
 void calculateModelOutflowFlux(float dt)
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
 			for (int j = -1; j <= 1; j++)
 			{
@@ -308,78 +212,78 @@ void calculateModelOutflowFlux(float dt)
 				{
 					if (abs(i) == abs(j)) continue;
 					float f = 0.0f;
-					if (model->getCell(x + i, y + j) != nullptr) {
-						float dHeight = model->terrainHeights[x][y] + model->waterHeights[x][y] - (model->terrainHeights[x + i][y + j] + model->waterHeights[x + i][y + j]);
-						float dPressure = fluidDensity * gravitationalAcc * dHeight;
-						float acceleration = dPressure / (fluidDensity * length);
-						f = dt * simulationSpeed * area * acceleration;
+					if (erosionModel->getCell(x + i, y + j) != nullptr) {
+						float dHeight = erosionModel->terrainHeights[x][y] + erosionModel->waterHeights[x][y] - (erosionModel->terrainHeights[x + i][y + j] + erosionModel->waterHeights[x + i][y + j]);
+						float dPressure = erosionModel->fluidDensity * GRAVITY_ACCELERATION * dHeight;
+						float acceleration = dPressure / (erosionModel->fluidDensity * erosionModel->lx);
+						f = dt * erosionModel->simulationSpeed * erosionModel->area * acceleration;
 					}
 
 					// compute flux
 					if (j == -1) {
-						model->outflowFlux[x][y].bottom = std::max(0.0f, model->outflowFlux[x][y].bottom + f);
+						erosionModel->outflowFlux[x][y].bottom = std::max(0.0f, erosionModel->outflowFlux[x][y].bottom + f);
 					}
 					else if (j == 1) {
-						model->outflowFlux[x][y].top = std::max(0.0f, model->outflowFlux[x][y].top + f);
+						erosionModel->outflowFlux[x][y].top = std::max(0.0f, erosionModel->outflowFlux[x][y].top + f);
 					}
 					else if (i == -1) {
-						model->outflowFlux[x][y].left = std::max(0.0f, model->outflowFlux[x][y].left + f);
+						erosionModel->outflowFlux[x][y].left = std::max(0.0f, erosionModel->outflowFlux[x][y].left + f);
 					}
 					else if (i == 1) {
-						model->outflowFlux[x][y].right = std::max(0.0f, model->outflowFlux[x][y].right + f);
+						erosionModel->outflowFlux[x][y].right = std::max(0.0f, erosionModel->outflowFlux[x][y].right + f);
 					}
 
 					// rescale
 					if (j == -1) {
-						model->outflowFlux[x][y].bottom *= std::min(1.0f, model->waterHeights[x][y] * length * length / (model->outflowFlux[x][y].bottom * dt));
+						erosionModel->outflowFlux[x][y].bottom *= std::min(1.0f, erosionModel->waterHeights[x][y] * erosionModel->area / (erosionModel->outflowFlux[x][y].bottom * dt));
 					}
 					else if (j == 1) {
-						model->outflowFlux[x][y].top *= std::min(1.0f, model->waterHeights[x][y] * length * length / (model->outflowFlux[x][y].top * dt));
+						erosionModel->outflowFlux[x][y].top *= std::min(1.0f, erosionModel->waterHeights[x][y] * erosionModel->area / (erosionModel->outflowFlux[x][y].top * dt));
 					}
 					else if (i == -1) {
-						model->outflowFlux[x][y].left *= std::min(1.0f, model->waterHeights[x][y] * length * length / (model->outflowFlux[x][y].left * dt));
+						erosionModel->outflowFlux[x][y].left *= std::min(1.0f, erosionModel->waterHeights[x][y] * erosionModel->area / (erosionModel->outflowFlux[x][y].left * dt));
 					}
 					else if (i == 1) {
-						model->outflowFlux[x][y].right *= std::min(1.0f, model->waterHeights[x][y] * length * length / (model->outflowFlux[x][y].right * dt));
+						erosionModel->outflowFlux[x][y].right *= std::min(1.0f, erosionModel->waterHeights[x][y] * erosionModel->area / (erosionModel->outflowFlux[x][y].right * dt));
 					}
 				}
 			}
 
-			model->outflowFlux[x][y].bottom = std::max(0.0f, model->outflowFlux[x][y].bottom);
-			model->outflowFlux[x][y].top = std::max(0.0f, model->outflowFlux[x][y].top);
-			model->outflowFlux[x][y].left = std::max(0.0f, model->outflowFlux[x][y].left);
-			model->outflowFlux[x][y].right = std::max(0.0f, model->outflowFlux[x][y].right);
+			erosionModel->outflowFlux[x][y].bottom = std::max(0.0f, erosionModel->outflowFlux[x][y].bottom);
+			erosionModel->outflowFlux[x][y].top = std::max(0.0f, erosionModel->outflowFlux[x][y].top);
+			erosionModel->outflowFlux[x][y].left = std::max(0.0f, erosionModel->outflowFlux[x][y].left);
+			erosionModel->outflowFlux[x][y].right = std::max(0.0f, erosionModel->outflowFlux[x][y].right);
 		}
 	}
 }
 void calculateModelWaterHeights(float dt)
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
 			float finX = 0.0f;
 			float finY = 0.0f;
-			float foutX = model->outflowFlux[x][y].left + model->outflowFlux[x][y].right;
-			float foutY = model->outflowFlux[x][y].top + model->outflowFlux[x][y].bottom;
+			float foutX = erosionModel->outflowFlux[x][y].left + erosionModel->outflowFlux[x][y].right;
+			float foutY = erosionModel->outflowFlux[x][y].top + erosionModel->outflowFlux[x][y].bottom;
 
 			float finL = 0.0f;
 			float finR = 0.0f;
 			float finT = 0.0f;
 			float finB = 0.0f;
 
-			float foutL = model->outflowFlux[x][y].left;
-			float foutR = model->outflowFlux[x][y].right;
-			float foutT = model->outflowFlux[x][y].top;
-			float foutB = model->outflowFlux[x][y].bottom;
+			float foutL = erosionModel->outflowFlux[x][y].left;
+			float foutR = erosionModel->outflowFlux[x][y].right;
+			float foutT = erosionModel->outflowFlux[x][y].top;
+			float foutB = erosionModel->outflowFlux[x][y].bottom;
 
 			for (int j = -1; j <= 1; j++)
 			{
 				for (int i = -1; i <= 1; i++)
 				{
 					if (abs(i) == abs(j)) continue;
-					if (model->getCell(x - i, y - j) != nullptr) {
-						FlowFlux flux = model->outflowFlux[x - i][y - j];
+					if (erosionModel->getCell(x - i, y - j) != nullptr) {
+						FlowFlux flux = erosionModel->outflowFlux[x - i][y - j];
 						if (j == -1) {
 							finY += flux.bottom;
 							finB = flux.bottom;
@@ -400,8 +304,8 @@ void calculateModelWaterHeights(float dt)
 				}
 			}
 
-			float currentWaterHeight = model->waterHeights[x][y];
-			float nextWaterHeight = currentWaterHeight + dt * ((finX + finY) - (foutX + foutY)) / (length * length);
+			float currentWaterHeight = erosionModel->waterHeights[x][y];
+			float nextWaterHeight = currentWaterHeight + dt * ((finX + finY) - (foutX + foutY)) / (erosionModel->area);
 
 			float wX = (finR - foutL + foutR - finL) / 2;
 			float wY = (finT - foutB + foutT - finB) / 2;
@@ -409,8 +313,8 @@ void calculateModelWaterHeights(float dt)
 
 			float avgWaterHeight = (currentWaterHeight + nextWaterHeight) / 2;
 
-			float xVelocity = (wX / (length));
-			float yVelocity = (wY / (length));
+			float xVelocity = (wX / (erosionModel->lx));
+			float yVelocity = (wY / (erosionModel->ly));
 
 			if (abs(avgWaterHeight) < 1) {
 				xVelocity *= avgWaterHeight;
@@ -422,56 +326,56 @@ void calculateModelWaterHeights(float dt)
 				yVelocity /= avgWaterHeight;
 			}
 
-			model->velocities[x][y] = glm::vec2(xVelocity, yVelocity);
+			erosionModel->velocities[x][y] = glm::vec2(xVelocity, yVelocity);
 
-			model->waterHeights[x][y] = nextWaterHeight;
+			erosionModel->waterHeights[x][y] = nextWaterHeight;
 
 		}
 	}
 }
 void sedimentDeposition(float dt)
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
 			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtIndex(x, y), glm::vec3(0, 1, 0)));
-			float mag = glm::length(model->velocities[x][y]);
+			float mag = glm::length(erosionModel->velocities[x][y]);
 
-			float sedimentTransportCapacity = mag * sedimentCapacity * std::min(sinf(tiltAngle), 0.05f);
+			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::min(sinf(tiltAngle), 0.05f);
 
-			if (model->suspendedSedimentAmounts[x][y] < sedimentTransportCapacity)
+			if (erosionModel->suspendedSedimentAmounts[x][y] < sedimentTransportCapacity)
 			{
 				//take sediment
-				float diff = dt * 0.5f * (sedimentTransportCapacity - model->suspendedSedimentAmounts[x][y]);
-				model->terrainHeights[x][y] -= diff;
-				model->suspendedSedimentAmounts[x][y] += diff;
+				float diff = dt * 0.5f * (sedimentTransportCapacity - erosionModel->suspendedSedimentAmounts[x][y]);
+				erosionModel->terrainHeights[x][y] -= diff;
+				erosionModel->suspendedSedimentAmounts[x][y] += diff;
 			}
-			else if (model->suspendedSedimentAmounts[x][y] > sedimentTransportCapacity)
+			else if (erosionModel->suspendedSedimentAmounts[x][y] > sedimentTransportCapacity)
 			{
-				float diff = dt * (model->suspendedSedimentAmounts[x][y] - sedimentTransportCapacity);
-				model->terrainHeights[x][y] += diff;
-				model->suspendedSedimentAmounts[x][y] -= diff;
+				float diff = dt * (erosionModel->suspendedSedimentAmounts[x][y] - sedimentTransportCapacity);
+				erosionModel->terrainHeights[x][y] += diff;
+				erosionModel->suspendedSedimentAmounts[x][y] -= diff;
 			}
 		}
 	}
 }
 void transportSediments(float dt)
 {
-	float** temp = new float* [model->width];
-	for (int i = 0; i < model->width; i++)
+	float** temp = new float* [erosionModel->width];
+	for (int i = 0; i < erosionModel->width; i++)
 	{
-		temp[i] = new float[model->length];
+		temp[i] = new float[erosionModel->length];
 	}
 
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			temp[x][y] = model->suspendedSedimentAmounts[x][y];
+			temp[x][y] = erosionModel->suspendedSedimentAmounts[x][y];
 
-			float prevX = x - model->velocities[x][y].x * dt;
-			float prevY = y - model->velocities[x][y].y * dt;
+			float prevX = x - erosionModel->velocities[x][y].x * dt;
+			float prevY = y - erosionModel->velocities[x][y].y * dt;
 
 			int x1 = x;
 			int y1 = y;
@@ -479,20 +383,20 @@ void transportSediments(float dt)
 			x1 = prevX < 0 ? std::floor(prevX) : std::ceil(prevX);
 			y1 = prevY < 0 ? std::floor(prevY) : std::ceil(prevY);
 
-			if (model->getCell(x1, y1) != nullptr)
-				temp[x][y] = model->suspendedSedimentAmounts[x1][y1];
+			if (erosionModel->getCell(x1, y1) != nullptr)
+				temp[x][y] = erosionModel->suspendedSedimentAmounts[x1][y1];
 		}
 	}
 
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			model->suspendedSedimentAmounts[x][y] = temp[x][y];
+			erosionModel->suspendedSedimentAmounts[x][y] = temp[x][y];
 		}
 	}
 
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
 		delete[] temp[y];
 	}
@@ -500,25 +404,25 @@ void transportSediments(float dt)
 }
 void sedimentSlippage(float dt)
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
 			for (int j = -1; j <= 1; j++)
 			{
 				for (int i = -1; i <= 1; i++)
 				{
 					if (abs(i) == abs(j)) continue;
-					if (model->getCell(x - i, y - j) != nullptr) {
+					if (erosionModel->getCell(x - i, y - j) != nullptr) {
 						float dh =
-							(model->terrainHeights[x][y]) -
-							(model->terrainHeights[x - i][y - j]);
-						float talus = length * tanf(slippageAngle);
+							(erosionModel->terrainHeights[x][y]) -
+							(erosionModel->terrainHeights[x - i][y - j]);
+						float talus = erosionModel->lx * tanf(glm::radians(erosionModel->slippageAngle));
 						if (dh > talus)
 						{
 							float slippage = dt * (dh - talus);
-							model->terrainHeights[x][y] -= slippage;
-							model->terrainHeights[x - i][y - j] += slippage;
+							erosionModel->terrainHeights[x][y] -= slippage;
+							erosionModel->terrainHeights[x - i][y - j] += slippage;
 						}
 					}
 				}
@@ -528,11 +432,11 @@ void sedimentSlippage(float dt)
 }
 void evaporate(float dt)
 {
-	for (int y = 0; y < model->length; y++)
+	for (int y = 0; y < erosionModel->length; y++)
 	{
-		for (int x = 0; x < model->width; x++)
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			model->waterHeights[x][y] *= 1 - (simulationSpeed * evaporationRate * dt);
+			erosionModel->waterHeights[x][y] *= 1 - (erosionModel->simulationSpeed * erosionModel->evaporationRate * dt);
 		}
 	}
 }
@@ -553,27 +457,27 @@ void updateModel(float dt)
 
 	transportSediments(dt);
 
-	if (useSedimentSlippage)
+	if (erosionModel->useSedimentSlippage)
 		sedimentSlippage(dt);
 
 	evaporate(dt);
 
-	terrainMesh->updateMeshFromHeights(&model->terrainHeights);
-	waterMesh->updateMeshFromHeights(&model->terrainHeights, &model->waterHeights, &model->velocities);
+	terrainMesh->updateMeshFromHeights(&erosionModel->terrainHeights);
+	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities);
 }
 
 
 int main()
 {
 	map.createProceduralHeightMap(mapSize, random);
-	//map.loadHeightMapFromFile("C:\\Users\\laure\\Downloads\\output-onlinepngtools.png");
+	// map.loadHeightMapFromFile("C:\\Users\\laure\\Downloads\\heightmapper-1676501778575.png");
 
 	distr = std::uniform_int_distribution(0, map.getWidth() * map.getLength());
-	model = new ErosionModel(map.getWidth(), map.getLength());
+	erosionModel = new ErosionModel(map.getWidth(), map.getLength());
 	initModel();
 
-	terrainMesh = new TerrainMesh(map.getWidth(), map.getLength(), &model->terrainHeights, mainShader);
-	waterMesh = new WaterMesh(map.getWidth(), map.getLength(), &model->terrainHeights, &model->waterHeights, waterShader);
+	terrainMesh = new TerrainMesh(map.getWidth(), map.getLength(), &erosionModel->terrainHeights, mainShader);
+	waterMesh = new WaterMesh(map.getWidth(), map.getLength(), &erosionModel->terrainHeights, &erosionModel->waterHeights, waterShader);
 
 	map.saveHeightMapPPM("heightMap.ppm");
 
@@ -604,18 +508,18 @@ int main()
 		}
 
 		if (window.getKeyDown(GLFW_KEY_ENTER)) {
-			isModelRunning = !isModelRunning;
-			printf("Model is %s\n", isModelRunning ? "Enabled" : "Disabled");
+			erosionModel->isModelRunning = !erosionModel->isModelRunning;
+			printf("Model is %s\n", erosionModel->isModelRunning ? "Enabled" : "Disabled");
 		}
 
 		if (window.getKeyDown(GLFW_KEY_P)) {
-			isRaining = !isRaining;
-			printf("%s Rain\n", isRaining ? "Enabled" : "Disabled");
+			erosionModel->isRaining = !erosionModel->isRaining;
+			printf("%s Rain\n", erosionModel->isRaining ? "Enabled" : "Disabled");
 		}
 
 		if (window.getKeyDown(GLFW_KEY_V)) {
-			debugWaterVelocity = !debugWaterVelocity;
-			printf("%s Velocity Debugging\n", debugWaterVelocity ? "Enabled" : "Disabled");
+			erosionModel->debugWaterVelocity = !erosionModel->debugWaterVelocity;
+			printf("%s Velocity Debugging\n", erosionModel->debugWaterVelocity ? "Enabled" : "Disabled");
 		}
 
 		if (window.getKeyDown(GLFW_KEY_TAB)) {
@@ -626,8 +530,10 @@ int main()
 				paintMode = static_cast<PaintMode>(current + 1);
 		}
 
-		if (isModelRunning)
+		if (erosionModel->isModelRunning)
 		{
+			//printf("Frame time: %f\n", deltaTime);
+			//printf("Time to render 1 simulation second: %f\n", deltaTime * 60.f);
 			updateModel(deltaTime);
 		}
 
@@ -652,6 +558,10 @@ int main()
 		
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 
 		glm::mat4 model = glm::mat4(1.0f);
 		glm::mat4 view = camera.getViewMatrix();
@@ -684,15 +594,30 @@ int main()
 		waterShader.setMat4("projection", proj);
 		waterShader.setUniformVector3("viewerPosition", camera.getPosition());
 		waterShader.setUniformFloat("deltaTime", &deltaTime);
-		waterShader.setUniformBool("debugWaterVelocity", debugWaterVelocity);
+		waterShader.setUniformBool("debugWaterVelocity", erosionModel->debugWaterVelocity);
+		waterNormalTexture.use();
+		waterShader.setTexture("texture0", GL_TEXTURE0);
+
 
 		waterMesh->draw();
 		waterShader.stop();
+
+		window.Menu(erosionModel);
+		// window.IMGuiTest();
+
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		ImGui::EndFrame();
 
 		window.swapBuffers();
 		window.updateInput();
 		window.pollEvents();
 	}
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	// ------------------------------------------------------------------

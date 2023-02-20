@@ -1,4 +1,5 @@
 #include "window.h"
+
 #include <iostream>
 
 Window::Window(int width, int height)
@@ -47,17 +48,34 @@ void Window::init()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glViewport(0, 0, bufferWidth, bufferHeight);
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    float heightScale, widthScale;
+    glfwGetWindowContentScale(glfwWindow, &widthScale, &heightScale);
+    io.FontGlobalScale = heightScale;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(glfwWindow, true);
+    ImGui_ImplOpenGL3_Init("#version 330 core");
+
+    glViewport(0, 0, bufferWidth, bufferHeight - ImGui::GetFrameHeight());    
 
     glfwSetWindowUserPointer(glfwWindow, this);
     glfwSetFramebufferSizeCallback(glfwWindow, framebuffer_size_callback);
+
+
 }
 
 void Window::updateInput()
 {
-    if (keys[GLFW_KEY_ESCAPE])
-        glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
-
 
     for (int i = 0; i < 1024; i++) 
     {
@@ -133,16 +151,61 @@ void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     currentWindow->mouseScrollY = yoffset;
 }
 
+bool showSimulationParameters = false;
+float simSpeed = 1.f;
+
+void Window::Menu(ErosionModel* model)
+{
+    if (ImGui::BeginMainMenuBar())
+    {
+        if(ImGui::BeginMenu("Tools"))
+        {
+            ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters);            
+            ImGui::EndMenu();            
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    if(showSimulationParameters)
+    if(ImGui::Begin("Simulation Parameters", &showSimulationParameters, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoResize))
+    {
+        // for setting the window in the right position / size
+        ImGui::SetWindowSize(ImVec2(800, height));
+        ImGui::SetWindowPos(ImVec2(width - 800, ImGui::GetFrameHeight()));
+
+        ImGui::Checkbox("Enable Simulation", &model->isModelRunning);
+        ImGui::Checkbox("Enable Rain", &model->isRaining);
+        ImGui::Checkbox("Enable Sediment Slippage",  &model->useSedimentSlippage);
+
+        ImGui::Spacing();
+
+        ImGui::SliderInt("Simulation Speed", &model->simulationSpeed, 1, 10);
+        ImGui::SliderInt("Rain Intensity", &model->rainIntensity, 1, 10);
+        ImGui::SliderInt("Rain Amount", &model->rainAmount, 1, 10);
+
+        ImGui::SliderFloat("Evaporation Rate", &model->evaporationRate, 0.0f, 1.0f, "%.2f");
+        // ImGui::SliderInt("Sea Level", &model->simulationSpeed, 1, 10);
+        ImGui::SliderFloat("Slippage Angle", &model->slippageAngle, 0, 89, "%.0f");
+        ImGui::SliderFloat("Sediment Capacity", &model->sedimentCapacity, 0.0f, 1.0f, "%.2f");
+
+
+        ImGui::End();
+    }
+}
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
+
 void Window::framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     Window* currentWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
     currentWindow->width = width;
-    currentWindow->height = height;
+    currentWindow->height = height - ImGui::GetFrameHeight();
     currentWindow->bufferWidth = width;
     currentWindow->bufferHeight = height;
+    
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, currentWindow->width, currentWindow->height);
+
 }
+

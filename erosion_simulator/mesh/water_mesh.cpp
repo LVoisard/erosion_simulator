@@ -77,17 +77,15 @@ void WaterMesh::calculateNormals()
 	{
 		for (int x = 1; x < (width - 1); x++)
 		{
-			glm::vec3 center = vertices[y * length + x].pos + vertices[y * length + x].height;
+			glm::vec3 center = vertices[y * length + x].pos;
 
-			glm::vec3 right = vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height;
-			glm::vec3 up = vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height;
-
-			glm::vec3 left = vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height;
-			glm::vec3 bottom = vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height;
-
+			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height;
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height;
+			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height;
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height;
 
 			glm::vec3 v1 = normalize(right - center);
-			glm::vec3 v2 = normalize(up - center);
+			glm::vec3 v2 = normalize(top - center);
 			glm::vec3 v3 = normalize(left - center);
 			glm::vec3 v4 = normalize(bottom - center);
 
@@ -96,20 +94,44 @@ void WaterMesh::calculateNormals()
 			glm::vec3 normal3 = cross(v4, v3);
 			glm::vec3 normal4 = cross(v1, v4);
 
-			glm::vec3 normal = normal1 + normal2 + normal3 + normal4;
+			glm::vec3 normal = glm::vec3(0);
 
-			// ridge check
-			/*if (normal.y < 2)
+			if (x == 0 || x == width - 1 || y == 0 || y == length - 1)
 			{
-				glm::vec3 norms[] = {normal1, normal2, normal3, normal4};
-				glm::vec3 smallestYNorm = norms[0];
-				for (int i = 0; i < 4; i++)
+				if (top == glm::vec3(0))
 				{
-					if (norms[i].y < smallestYNorm.y)
-						smallestYNorm = norms[i];
+					if (left != glm::vec3(0))
+						normal += normal3;
+					if (right != glm::vec3(0))
+						normal += normal4;
 				}
-				normal = smallestYNorm;
-			}*/
+				else if (bottom == glm::vec3(0))
+				{
+					if (left != glm::vec3(0))
+						normal += normal2;
+					if (right != glm::vec3(0))
+						normal += normal1;
+				}
+
+				if (left == glm::vec3(0))
+				{
+					if (top != glm::vec3(0))
+						normal += normal1;
+					if (bottom != glm::vec3(0))
+						normal += normal4;
+				}
+				else if (right == glm::vec3(0))
+				{
+					if (top != glm::vec3(0))
+						normal += normal2;
+					if (bottom != glm::vec3(0))
+						normal += normal3;
+				}
+			}
+			else
+			{
+				normal = normal1 + normal2 + normal3 + normal4;
+			}
 
 			vertices[y * length + x].normal = glm::normalize(normal);
 		}

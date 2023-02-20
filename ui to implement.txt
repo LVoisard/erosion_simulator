@@ -1,0 +1,30 @@
+Configurable UI Elements :
+
+Core simulation
+- Simulation Speed
+- Rain Intensity
+- Rain Amount
+- Evaporation Rate
+- Sea level
+- Cell length
+- Cell area
+- Slippage angle
+- Is Raining
+- Sediment Capacity
+
+Debug Modes:
+- Water Velocity
+- Water Carrying Sediment
+- Deposited Sediment (blue +, red -)
+
+Water parameters
+- Fluid density
+- Gravitational Acceleration
+
+Brush parameters:
+- Brush Modes
+- Brush Radius
+- Brush Intensity
+
+
+

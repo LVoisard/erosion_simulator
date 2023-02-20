@@ -135,9 +135,6 @@ void Mesh::calculateNormals()
 	{
 		for (int x = 0; x < width; x++)
 		{
-			// i used to have 4 adjacent tiles, but used this 8 adjacent instead
-			// costs more but looks better and is more accurate for erosion
-			// https://stackoverflow.com/questions/44120220/calculating-normals-on-terrain-mesh
 			glm::vec3 center = vertices[y * length + x].pos;
 
 			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos;
