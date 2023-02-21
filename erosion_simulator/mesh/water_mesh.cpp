@@ -79,10 +79,10 @@ void WaterMesh::calculateNormals()
 		{
 			glm::vec3 center = vertices[y * length + x].pos;
 
-			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height;
-			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height;
-			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height;
-			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height;
+			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height * glm::vec3(0,1,0);
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height * glm::vec3(0, 1, 0);
+			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height * glm::vec3(0, 1, 0);
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height * glm::vec3(0, 1, 0);
 
 			glm::vec3 v1 = normalize(right - center);
 			glm::vec3 v2 = normalize(top - center);

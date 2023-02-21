@@ -22,7 +22,7 @@ void main()
 	
 	fragNormal = mat3(transpose(inverse(model))) * normal;
 	
-	fragPos = (model * vec4(pos, 1.0)).xyz;
+	fragPos = pos;
 	
 	texCoord = uv;
 

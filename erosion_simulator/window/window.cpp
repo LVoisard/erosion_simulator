@@ -94,6 +94,7 @@ void Window::updateInput()
     mouseScrollY = 0;
 }
 
+
 void Window::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     Window* currentWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -151,31 +152,48 @@ void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     currentWindow->mouseScrollY = yoffset;
 }
 
-bool showSimulationParameters = false;
 float simSpeed = 1.f;
+static bool showSimulationParameters = false;
 
 void Window::Menu(ErosionModel* model)
 {
+
     if (ImGui::BeginMainMenuBar())
     {
         if(ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters);            
+            if (ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters)) 
+            {
+                if (showSimulationParameters)
+                {
+                    width -= SIMULATION_PARAMETER_WINDOW_WIDTH;
+                }
+                else
+                {
+                    width += SIMULATION_PARAMETER_WINDOW_WIDTH;
+                }
+                
+                glViewport(0, 0, width, height);
+            }            
             ImGui::EndMenu();            
         }
         ImGui::EndMainMenuBar();
-    }
+    }   
 
-    if(showSimulationParameters)
-    if(ImGui::Begin("Simulation Parameters", &showSimulationParameters, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoResize))
+    if (showSimulationParameters) ShowSimulationParameters(model, &showSimulationParameters);
+}
+
+void Window::ShowSimulationParameters(ErosionModel* model, bool *open)
+{
+    if (ImGui::Begin("Simulation Parameters", open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoResize))
     {
         // for setting the window in the right position / size
-        ImGui::SetWindowSize(ImVec2(800, height));
-        ImGui::SetWindowPos(ImVec2(width - 800, ImGui::GetFrameHeight()));
+        ImGui::SetWindowSize(ImVec2(SIMULATION_PARAMETER_WINDOW_WIDTH, height));
+        ImGui::SetWindowPos(ImVec2(width, ImGui::GetFrameHeight()));
 
         ImGui::Checkbox("Enable Simulation", &model->isModelRunning);
         ImGui::Checkbox("Enable Rain", &model->isRaining);
-        ImGui::Checkbox("Enable Sediment Slippage",  &model->useSedimentSlippage);
+        ImGui::Checkbox("Enable Sediment Slippage", &model->useSedimentSlippage);
 
         ImGui::Spacing();
 
@@ -191,14 +209,21 @@ void Window::Menu(ErosionModel* model)
 
         ImGui::End();
     }
+    
+    if (!*open) {
+        width += SIMULATION_PARAMETER_WINDOW_WIDTH;
+        glViewport(0, 0, width, height);
+    }
+
 }
+
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 
 void Window::framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     Window* currentWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
-    currentWindow->width = width;
+    currentWindow->width = showSimulationParameters ? width - SIMULATION_PARAMETER_WINDOW_WIDTH : width;
     currentWindow->height = height - ImGui::GetFrameHeight();
     currentWindow->bufferWidth = width;
     currentWindow->bufferHeight = height;

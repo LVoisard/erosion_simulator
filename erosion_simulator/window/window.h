@@ -6,6 +6,8 @@
 #include "GLFW/glfw3.h"
 #include "erosion_model.h"
 
+const int SIMULATION_PARAMETER_WINDOW_WIDTH = 600;
+
 class Window
 {
 
@@ -66,6 +68,7 @@ private:
 	double mouseDeltaX = 0;
 	double mouseDeltaY = 0;
 
+	void ShowSimulationParameters(ErosionModel* model, bool* open);
 
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void cursor_position_callback(GLFWwindow* window, double xPos, double yPos);
