@@ -1,6 +1,32 @@
 #pragma once
 #include <glm/glm.hpp>
 
+enum class TerrainDebugMode
+{
+	TERRAIN_NORMAL,
+	TERRAIN_SUSCEPTIBILITY,
+	TERRAIN_SEDIMENT_DEPOSITION,
+	TERRAIN_INVISIBLE,
+	COUNT,
+};
+
+enum class WaterDebugMode
+{
+	WATER_NORMAL,
+	WATER_VELOCITY,
+	WATER_SEDIMENT_TRANSPORT,
+	WATER_INVISIBLE,
+	COUNT,
+};
+
+enum class PaintMode
+{
+	WATER_ADD,
+	WATER_REMOVE,
+	TERRAIN_ADD,
+	TERRAIN_REMOVE,
+	COUNT,
+};
 
 struct FlowFlux
 {
@@ -50,13 +76,15 @@ struct ErosionModel
 
 	float sedimentCapacity = 0.1f;
 	float slippageAngle;
+	float seaLevel = -20;
 
 	bool useSedimentSlippage = true;
 
 	bool isRaining = false;
 	bool isModelRunning = false;
 
-	bool debugWaterVelocity = false;
+	WaterDebugMode waterDebugMode = WaterDebugMode::WATER_NORMAL;
+	TerrainDebugMode terrainDebugMode = TerrainDebugMode::TERRAIN_NORMAL;
 
 	float** terrainHeights; // b
 	float** waterHeights; // d

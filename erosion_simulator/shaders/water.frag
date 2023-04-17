@@ -7,6 +7,7 @@ in vec3 fragPos;
 in vec2 texCoord;
 in float fragWaterHeight;
 in vec2 fragWaterVelocity;
+in float fragSediment;
 
 
 float minWaterHeight = 0.15;
@@ -20,7 +21,8 @@ out vec4 fragColor;
 uniform vec3 viewerPosition;
 uniform sampler2D texture0;
 uniform float deltaTime;
-uniform int debugWaterVelocity;
+uniform int waterDebugMode;
+
 
 vec3 lightDirection = normalize(vec3(1.0,10.0, 3.0));
 
@@ -43,19 +45,53 @@ float getGreen(float velocity)
 	return g;
 }
 
+float getRed(float velocity)
+{
+	if(velocity < 0.5)
+		return 0;
+	else
+	{
+		return (velocity - 0.25) * (4/3);
+	}
+}
+
+float getBlue(float velocity)
+{
+	if(velocity > 0.5)
+		return 0;
+	else
+		return 1 - (3/4) * velocity;
+
+}
+
 void main()
 {
 	if(fragWaterHeight < minWaterHeight){
+		fragColor = vec4(0);
+		return;
+	}
+
+	// water velocity
+	if(waterDebugMode == 1) {
+		float velocity = length(fragWaterVelocity);
+		fragColor = vec4(getRed(velocity), getGreen(velocity), getBlue(velocity), 1);
+		return;
+	}
+	// sediment transportation
+	else if (waterDebugMode == 2)
+	{
+		fragColor = vec4(3 * fragSediment, 0,0,1);
+		return;
+	}
+	// invisible
+	else if( waterDebugMode == 3)
+	{
+		fragColor = vec4(0);
 		return;
 	}
 
 	vec3 baseColor = vec3(15.0 / 256, 94.0 / 256, 156.0 / 256.0);
 
-	float velocity = length(fragWaterVelocity);
-	if(debugWaterVelocity == 1) {
-		fragColor = vec4(velocity, getGreen(velocity), 1 - velocity, 1);
-		return;
-	}
 	
 
 

@@ -24,15 +24,6 @@ const float GRAVITY_ACCELERATION = 9.807f;
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
-enum PaintMode
-{
-	WATER_ADD,
-	WATER_REMOVE,
-	TERRAIN_ADD,
-	TERRAIN_REMOVE,
-	COUNT,
-};
-
 float waterflowRate = 0.1f;
 
 Window window(SCR_WIDTH, SCR_HEIGHT);
@@ -61,10 +52,10 @@ Skybox skybox(skyboxFacesLocation);
 // max size for cpu computations is 512,
 // 256 is better
 //2 ^ n
-int mapSize = 256;
-float minHeight = 0;
-float maxHeight = 100;
-float random = 2;
+int mapSize = 512;
+float minHeight = -50;
+float maxHeight = 50;
+float random = 4;
 HeightMap map(minHeight, maxHeight);
 
 TerrainMesh* terrainMesh;
@@ -80,7 +71,7 @@ bool castRays = false;
 glm::vec3 cursorOverPosition = glm::vec3(INT_MIN);
 float brushRadius = 5.0f;
 float brushIntensity = 25.0f;
-PaintMode paintMode = WATER_ADD;
+PaintMode paintMode = PaintMode::WATER_ADD;
 
 void raycastThroughScene()
 {
@@ -92,10 +83,10 @@ void raycastThroughScene()
 	glm::vec3 C = B - (window.getWidth() / 2 * pixelSize * right);
 
 	glm::vec3 direction = glm::normalize(
-		C + 
-		((window.getMousePosX() * pixelSize + pixelSize / 2.0f) * camera.getRight()) - 
+		C +
+		((window.getMousePosX() * pixelSize + pixelSize / 2.0f) * camera.getRight()) -
 		((window.getMousePosY() * pixelSize + pixelSize / 2.0f) * camera.getUp() + camera.getPosition()));
-	
+
 	cursorOverPosition = glm::vec3(INT_MIN);
 
 	for (int i = 0; i < terrainMesh->indexCount; i += 3)
@@ -128,7 +119,7 @@ void initModel()
 		for (int x = 0; x < erosionModel->width; x++)
 		{
 			erosionModel->terrainHeights[x][y] = map.samplePoint(x, y);
-			erosionModel->waterHeights[x][y] = 0.0f;
+			erosionModel->waterHeights[x][y] = erosionModel->seaLevel > erosionModel->terrainHeights[x][y] ? erosionModel->seaLevel - erosionModel->terrainHeights[x][y] : 0.0f;
 			erosionModel->suspendedSedimentAmounts[x][y] = 0.0f;
 			erosionModel->outflowFlux[x][y] = FlowFlux{};
 			erosionModel->velocities[x][y] = glm::vec2(0.0f);
@@ -143,7 +134,7 @@ void resetModel()
 		for (int x = 0; x < erosionModel->width; x++)
 		{
 			erosionModel->terrainHeights[x][y] = map.samplePoint(x, y);
-			erosionModel->waterHeights[x][y] = 0.0f;
+			erosionModel->waterHeights[x][y] = erosionModel->seaLevel > erosionModel->terrainHeights[x][y] ? erosionModel->seaLevel - erosionModel->terrainHeights[x][y] : 0.0f;;
 			erosionModel->suspendedSedimentAmounts[x][y] = 0.0f;
 			erosionModel->outflowFlux[x][y] = FlowFlux{};
 			erosionModel->velocities[x][y] = glm::vec2(0.0f);
@@ -153,19 +144,24 @@ void resetModel()
 
 	terrainMesh->updateOriginalHeights(&erosionModel->terrainHeights);
 	terrainMesh->updateMeshFromHeights(&erosionModel->terrainHeights);
-	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities);
+	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities, &erosionModel->suspendedSedimentAmounts);
 }
 void addPrecipitation(float dt) {
-	if (erosionModel->isRaining) {
-		for (int y = 0; y < erosionModel->length; y++)
+
+	for (int y = 0; y < erosionModel->length; y++)
+	{
+		for (int x = 0; x < erosionModel->width; x++)
 		{
-			for (int x = 0; x < erosionModel->width; x++)
-			{
+			// adjust sea level minimum water amount
+			if (erosionModel->waterHeights[x][y] + erosionModel->terrainHeights[x][y] < erosionModel->seaLevel)
+				erosionModel->waterHeights[x][y] += dt;
+			if (erosionModel->isRaining) {
 				if (distr(gen) <= erosionModel->rainAmount * mapSize)
 					erosionModel->waterHeights[x][y] += dt * erosionModel->rainIntensity * erosionModel->simulationSpeed;
 			}
 		}
-	}	
+	}
+
 }
 void paint(float dt) {
 	if (window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT))
@@ -179,17 +175,17 @@ void paint(float dt) {
 				{
 					switch (paintMode)
 					{
-					case WATER_ADD:
-						erosionModel->waterHeights[x][y] += dt * brushIntensity; 
+					case PaintMode::WATER_ADD:
+						erosionModel->waterHeights[x][y] += dt * brushIntensity;
 						break;
-					case WATER_REMOVE:
+					case PaintMode::WATER_REMOVE:
 						erosionModel->waterHeights[x][y] -= dt * brushIntensity;
 						erosionModel->waterHeights[x][y] = std::max(erosionModel->waterHeights[x][y], 0.0f);
 						break;
-					case TERRAIN_ADD:
+					case PaintMode::TERRAIN_ADD:
 						erosionModel->terrainHeights[x][y] += dt * brushIntensity;// *(1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
-					case TERRAIN_REMOVE:
+					case PaintMode::TERRAIN_REMOVE:
 						erosionModel->terrainHeights[x][y] -= dt * brushIntensity;//  * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
 					default:
@@ -327,9 +323,7 @@ void calculateModelWaterHeights(float dt)
 			}
 
 			erosionModel->velocities[x][y] = glm::vec2(xVelocity, yVelocity);
-
 			erosionModel->waterHeights[x][y] = nextWaterHeight;
-
 		}
 	}
 }
@@ -342,7 +336,7 @@ void sedimentDeposition(float dt)
 			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtIndex(x, y), glm::vec3(0, 1, 0)));
 			float mag = glm::length(erosionModel->velocities[x][y]);
 
-			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::min(sinf(tiltAngle), 0.05f);
+			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::max(sinf(tiltAngle), 0.05f);
 
 			if (erosionModel->suspendedSedimentAmounts[x][y] < sedimentTransportCapacity)
 			{
@@ -380,8 +374,11 @@ void transportSediments(float dt)
 			int x1 = x;
 			int y1 = y;
 
-			x1 = prevX < 0 ? std::floor(prevX) : std::ceil(prevX);
-			y1 = prevY < 0 ? std::floor(prevY) : std::ceil(prevY);
+			if((erosionModel->velocities[x][y].y) / (erosionModel->velocities[x][y].x) > 0.293f)
+				x1 = prevX < x ? std::floor(prevX) : std::ceil(prevX);
+			
+			if ((erosionModel->velocities[x][y].x) / (erosionModel->velocities[x][y].y) > 0.293f)
+				y1 = prevY < y ? std::floor(prevY) : std::ceil(prevY);
 
 			if (erosionModel->getCell(x1, y1) != nullptr)
 				temp[x][y] = erosionModel->suspendedSedimentAmounts[x1][y1];
@@ -436,7 +433,9 @@ void evaporate(float dt)
 	{
 		for (int x = 0; x < erosionModel->width; x++)
 		{
-			erosionModel->waterHeights[x][y] *= 1 - (erosionModel->simulationSpeed * erosionModel->evaporationRate * dt);
+			//only evaporate above sea level
+			if (erosionModel->waterHeights[x][y] + erosionModel->terrainHeights[x][y] > erosionModel->seaLevel)
+				erosionModel->waterHeights[x][y] *= 1 - (erosionModel->simulationSpeed * erosionModel->evaporationRate * dt);
 		}
 	}
 }
@@ -463,7 +462,7 @@ void updateModel(float dt)
 	evaporate(dt);
 
 	terrainMesh->updateMeshFromHeights(&erosionModel->terrainHeights);
-	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities);
+	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities, &erosionModel->suspendedSedimentAmounts);
 }
 
 
@@ -498,7 +497,7 @@ int main()
 		// disable until update all meshes is done
 		if (window.getKeyDown(GLFW_KEY_SPACE)) {
 			castRays = !castRays;
-			if(!castRays)
+			if (!castRays)
 				cursorOverPosition = glm::vec3(INT_MIN);
 		}
 
@@ -518,13 +517,26 @@ int main()
 		}
 
 		if (window.getKeyDown(GLFW_KEY_V)) {
-			erosionModel->debugWaterVelocity = !erosionModel->debugWaterVelocity;
-			printf("%s Velocity Debugging\n", erosionModel->debugWaterVelocity ? "Enabled" : "Disabled");
+			int current = (int)erosionModel->waterDebugMode;
+			if (current >= (int)WaterDebugMode::COUNT - 1)
+				erosionModel->waterDebugMode = static_cast<WaterDebugMode>(0);
+			else
+				erosionModel->waterDebugMode = static_cast<WaterDebugMode>(current + 1);
+			printf("Water Debugging mode %d Enabled\n", (int)erosionModel->waterDebugMode);
 		}
 
-		if (window.getKeyDown(GLFW_KEY_TAB)) {
+		if (window.getKeyDown(GLFW_KEY_B)) {
+			int current = (int)erosionModel->terrainDebugMode;
+			if (current >= (int)TerrainDebugMode::COUNT - 1)
+				erosionModel->terrainDebugMode = static_cast<TerrainDebugMode>(0);
+			else
+				erosionModel->terrainDebugMode = static_cast<TerrainDebugMode>(current + 1);
+			printf("Terrain Debugging mode %d Enabled\n", (int)erosionModel->terrainDebugMode);
+		}
+
+		if (window.getKeyDown(GLFW_KEY_TAB) && castRays) {
 			int current = (int)paintMode;
-			if (current >= COUNT - 1)
+			if (current >= (int)PaintMode::COUNT - 1)
 				paintMode = static_cast<PaintMode>(0);
 			else
 				paintMode = static_cast<PaintMode>(current + 1);
@@ -534,7 +546,7 @@ int main()
 		{
 			//printf("Frame time: %f\n", deltaTime);
 			//printf("Time to render 1 simulation second: %f\n", deltaTime * 60.f);
-			updateModel(deltaTime);
+			updateModel(0.033333f);
 		}
 
 		if (window.getMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
@@ -555,7 +567,7 @@ int main()
 		if (castRays && !camera.inFreeView())
 			raycastThroughScene();
 
-		
+
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -576,6 +588,7 @@ int main()
 		mainShader.setUniformBool("checkMousePos", castRays);
 		mainShader.setUniformVector3("cursorOverTerrainPos", cursorOverPosition);
 		mainShader.setUniformFloat("brushRadius", &brushRadius);
+		mainShader.setUniformInt("debugMode", (int)erosionModel->terrainDebugMode);
 
 
 		mainShader.setTexture("texture0", 0);
@@ -594,7 +607,7 @@ int main()
 		waterShader.setMat4("projection", proj);
 		waterShader.setUniformVector3("viewerPosition", camera.getPosition());
 		waterShader.setUniformFloat("deltaTime", &deltaTime);
-		waterShader.setUniformBool("debugWaterVelocity", erosionModel->debugWaterVelocity);
+		waterShader.setUniformInt("waterDebugMode", (int)erosionModel->waterDebugMode);
 		waterNormalTexture.use();
 		waterShader.setTexture("texture0", GL_TEXTURE0);
 

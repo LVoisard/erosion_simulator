@@ -11,6 +11,7 @@ struct Vertex
 	glm::vec2 uv;
 	float height;
 	glm::vec2 velocity;
+	float currentSediment;
 };
 
 class Mesh

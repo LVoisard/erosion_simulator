@@ -12,12 +12,13 @@ WaterMesh::WaterMesh(int width, int length, float*** waterFloor, float*** waterH
 	calculateNormals();
 }
 
-void WaterMesh::updateMeshFromHeights(float*** waterFloor, float*** waterHeight, glm::vec2*** waterVelocities)
+void WaterMesh::updateMeshFromHeights(float*** waterFloor, float*** waterHeight, glm::vec2*** waterVelocities, float*** sediments)
 {
 	clearData();
 	calculateVertices(waterFloor);
 	changeVerticesWaterHeight(waterHeight);
 	changeVerticesWaterVelocities(waterVelocities);
+	changeVerticesWaterSediment(sediments);
 	calculateIndices();
 	calculateNormals();
 	update();
@@ -45,6 +46,17 @@ void WaterMesh::changeVerticesWaterVelocities(glm::vec2*** waterVelocities)
 	}
 }
 
+void WaterMesh::changeVerticesWaterSediment(float*** sediments)
+{
+	for (int y = 0; y < length; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+			vertices[y * length + x].currentSediment = (*sediments)[x][y];
+		}
+	}
+}
+
 void WaterMesh::init()
 {
 	glBindVertexArray(VAO);
@@ -60,11 +72,13 @@ void WaterMesh::init()
 	glEnableVertexAttribArray(shader.getAttribLocation("uv"));
 	glEnableVertexAttribArray(shader.getAttribLocation("height"));
 	glEnableVertexAttribArray(shader.getAttribLocation("velocity"));
+	glEnableVertexAttribArray(shader.getAttribLocation("sediment"));
 	glVertexAttribPointer(shader.getAttribLocation("pos"), 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(0));
 	glVertexAttribPointer(shader.getAttribLocation("normal"), 3, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos)));
 	glVertexAttribPointer(shader.getAttribLocation("uv"), 2, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal)));
 	glVertexAttribPointer(shader.getAttribLocation("height"), 1, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal) + sizeof(vertices[0].uv)));
 	glVertexAttribPointer(shader.getAttribLocation("velocity"), 2, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal) + sizeof(vertices[0].uv) + sizeof(vertices[0].height)));
+	glVertexAttribPointer(shader.getAttribLocation("sediment"), 1, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (const GLvoid*)(sizeof(vertices[0].pos) + sizeof(vertices[0].normal) + sizeof(vertices[0].uv) + sizeof(vertices[0].height) + sizeof(vertices[0].velocity)));
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

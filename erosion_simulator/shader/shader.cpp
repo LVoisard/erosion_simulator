@@ -65,6 +65,11 @@ void Shader::setUniformBool(const char* name, int val)
     glUniform1i(glGetUniformLocation(ID, name), val);
 }
 
+void Shader::setUniformInt(const char* name, int val)
+{
+    glUniform1i(glGetUniformLocation(ID, name), val);
+}
+
 void Shader::setMat4(const char* name, glm::mat4& matrix)
 {
     glUniformMatrix4fv(glGetUniformLocation(ID, name), 1, GL_FALSE, glm::value_ptr(matrix));

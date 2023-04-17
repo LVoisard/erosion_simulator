@@ -202,7 +202,7 @@ void Window::ShowSimulationParameters(ErosionModel* model, bool *open)
         ImGui::SliderInt("Rain Amount", &model->rainAmount, 1, 10);
 
         ImGui::SliderFloat("Evaporation Rate", &model->evaporationRate, 0.0f, 1.0f, "%.2f");
-        // ImGui::SliderInt("Sea Level", &model->simulationSpeed, 1, 10);
+        ImGui::SliderFloat("Sea Level", &model->seaLevel, -100, 100, "%.0f");
         ImGui::SliderFloat("Slippage Angle", &model->slippageAngle, 0, 89, "%.0f");
         ImGui::SliderFloat("Sediment Capacity", &model->sedimentCapacity, 0.0f, 1.0f, "%.2f");
 

@@ -17,12 +17,39 @@ int rock = 90;
 
 vec3 lightDirection = normalize(vec3(0.0,-1.0,0.0));
 
-uniform bool checkMousePos;
 uniform vec3 cursorOverTerrainPos;
 uniform float brushRadius;
 
+uniform int debugMode;
+
 void main()
 {
+	// debug modes
+
+	// show how prone the terrain is to being erroded by force-based erosion
+	if(debugMode == 1)		
+	{
+		float tiltAngle = acos(dot(fragNormal, vec3(0, 1, 0)));
+		float terrainProne = max(sin(tiltAngle), 0.05);
+		FragColor = vec4(terrainProne, 0, 0, 1);
+		return;
+	} 
+	else if (debugMode == 2)
+	{
+		float sedimentDeposited = fragPos.y - fragOriginalHeight;
+		if(sedimentDeposited > 0)
+			FragColor = vec4(0,0,min(sedimentDeposited, 1),1);
+		else
+			FragColor = vec4(min(abs(sedimentDeposited), 1),0,0,1);
+		return;
+	}
+	else if (debugMode == 3)
+	{
+		FragColor = vec4(0);
+		return;
+	}
+
+
 	// check slope angle and color
 	float theta = degrees(acos(dot(fragNormal, vec3(0.0, 1.0, 0.0))));
 
