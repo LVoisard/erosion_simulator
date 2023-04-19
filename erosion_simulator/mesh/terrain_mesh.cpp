@@ -9,7 +9,7 @@ TerrainMesh::TerrainMesh(int width, int length, float*** terrainHeights, Shader 
 	{
 		for (int x = 0; x < width; x++)
 		{
-			originalHeights[y * length + x] = (*terrainHeights)[x][y];
+			originalHeights[y * width + x] = (*terrainHeights)[x][y];
 		}
 	}
 
@@ -58,7 +58,7 @@ void TerrainMesh::updateOriginalHeights()
 	{
 		for (int x = 0; x < width; x++)
 		{
-			vertices[y * length + x].height = originalHeights[y * length + x];
+			vertices[y * width + x].height = originalHeights[y * width + x];
 		}
 	}
 }
@@ -100,10 +100,10 @@ void TerrainMesh::init()
 
 glm::vec3 TerrainMesh::getNormalAtIndex(int x, int y)
 {
-	return vertices[y * length + x].normal;
+	return vertices[y * width + x].normal;
 }
 
 glm::vec3 TerrainMesh::getPositionAtIndex(int x, int y)
 {
-	return vertices[y * length + x].pos;
+	return vertices[y * width + x].pos;
 }

@@ -30,7 +30,7 @@ void WaterMesh::changeVerticesWaterHeight(float*** waterHeight)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			vertices[y * length + x].height = (*waterHeight)[x][y];
+			vertices[y * width + x].height = (*waterHeight)[x][y];
 		}
 	}
 }
@@ -41,7 +41,7 @@ void WaterMesh::changeVerticesWaterVelocities(glm::vec2*** waterVelocities)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			vertices[y * length + x].velocity = (*waterVelocities)[x][y];
+			vertices[y * width + x].velocity = (*waterVelocities)[x][y];
 		}
 	}
 }
@@ -52,7 +52,7 @@ void WaterMesh::changeVerticesWaterSediment(float*** sediments)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			vertices[y * length + x].currentSediment = (*sediments)[x][y];
+			vertices[y * width + x].currentSediment = (*sediments)[x][y];
 		}
 	}
 }
@@ -91,12 +91,12 @@ void WaterMesh::calculateNormals()
 	{
 		for (int x = 1; x < (width - 1); x++)
 		{
-			glm::vec3 center = vertices[y * length + x].pos;
+			glm::vec3 center = vertices[y * width + x].pos;
 
-			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos + vertices[(y + 1) * length + x].height * glm::vec3(0,1,0);
-			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos + vertices[(y - 1) * length + x].height * glm::vec3(0, 1, 0);
-			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos + vertices[y * length + x + 1].height * glm::vec3(0, 1, 0);
-			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos + vertices[y * length + x - 1].height * glm::vec3(0, 1, 0);
+			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * width + x].pos + vertices[(y + 1) * width + x].height * glm::vec3(0,1,0);
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * width + x].pos + vertices[(y - 1) * width + x].height * glm::vec3(0, 1, 0);
+			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * width + x + 1].pos + vertices[y * width + x + 1].height * glm::vec3(0, 1, 0);
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * width + x - 1].pos + vertices[y * width + x - 1].height * glm::vec3(0, 1, 0);
 
 			glm::vec3 v1 = normalize(right - center);
 			glm::vec3 v2 = normalize(top - center);
@@ -147,7 +147,7 @@ void WaterMesh::calculateNormals()
 				normal = normal1 + normal2 + normal3 + normal4;
 			}
 
-			vertices[y * length + x].normal = glm::normalize(normal);
+			vertices[y * width + x].normal = glm::normalize(normal);
 		}
 	}
 }

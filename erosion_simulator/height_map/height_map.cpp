@@ -6,6 +6,15 @@
 
 #include "external/stb_image.h"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "external/tiny_obj_loader.h"
+
+#include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+#include <unordered_map>
+
 
 HeightMap::HeightMap(double minHeight, double maxHeight)
 	:minHeight(minHeight), maxHeight(maxHeight)
@@ -54,6 +63,72 @@ void HeightMap::loadHeightMapFromFile(std::string fileName)
 	stbi_image_free(img);
 }
 
+void HeightMap::loadHeightMapFromOBJFile(std::string fileName)
+{
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+
+	std::vector<glm::vec3> vertices;
+	std::vector<uint32_t> indices;
+
+	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, fileName.c_str())) {
+		throw std::runtime_error(warn + err);
+	}
+
+	std::unordered_map<glm::vec3, int> uniqueVertices{};
+
+	for (const auto& shape : shapes) {
+		for (const auto& index : shape.mesh.indices) {
+			glm::vec3 vertex{};
+
+			if (index.vertex_index >= 0) {
+				vertex = {
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2],
+				};
+			}
+
+			if (uniqueVertices.count(vertex) == 0) {
+				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+				vertices.push_back(vertex);
+			}
+
+			indices.push_back(uniqueVertices[vertex]);
+		}
+	}
+
+	int width = 0;
+	int length = 0;
+
+	float Xval = vertices[0].x;
+	float Zval = vertices[0].z;
+
+	for (auto vert : vertices)
+	{
+		if (vert.x == Xval) width++;
+		if (vert.z == Zval) length++;
+	}
+
+	this->width = width;
+	this->length = length;
+
+	heightMap = new double* [width];
+	for (int i = 0; i < width; i++) {
+		heightMap[i] = new double[length];
+	}
+
+	for (int y = 0; y < length; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+			heightMap[x][y] = vertices[y * width + x].y * 256.0 + (float)x / (width / 20.0);
+		}
+	}
+}
+
 void HeightMap::setHeightRange(double minHeight, double maxHeight)
 {
 	this->minHeight = minHeight;
@@ -90,9 +165,9 @@ void HeightMap::saveHeightMapPPM(std::string fileName)
 	for (int y = 0; y < length; y++) {
 		for (int x = 0; x < width; x++) {
 			double color = getRGBA(x, y);
-			buffer[3 * y * length + 3 * x + 0] = color;
-			buffer[3 * y * length + 3 * x + 1] = color;
-			buffer[3 * y * length + 3 * x + 2] = color;
+			buffer[3 * y * width + 3 * x + 0] = color;
+			buffer[3 * y * width + 3 * x + 1] = color;
+			buffer[3 * y * width + 3 * x + 2] = color;
 		}
 	}
 

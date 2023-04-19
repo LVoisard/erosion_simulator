@@ -75,6 +75,7 @@ struct ErosionModel
 	float area = lx * ly;
 
 	float sedimentCapacity = 0.1f;
+	float maxErosionDepth = 10.f;
 	float slippageAngle;
 	float seaLevel = -20;
 
@@ -108,6 +109,7 @@ struct ErosionModel
 		area = lx * ly;
 
 		sedimentCapacity = 0.1f;
+		maxErosionDepth = 10.0f;
 		slippageAngle = 45.0f;
 
 

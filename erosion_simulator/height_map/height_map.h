@@ -8,6 +8,7 @@ public:
 	HeightMap(double minHeight, double maxHeight);
 	void createProceduralHeightMap(int size, double random);
 	void loadHeightMapFromFile(std::string);
+	void loadHeightMapFromOBJFile(std::string);
 	void setHeightRange(double minHeight, double maxHeight);
 	void setRandomRange(double random);
 	double** getHeightMap() { return heightMap; }

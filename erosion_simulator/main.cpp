@@ -11,7 +11,6 @@
 #include <chrono>
 #include <mesh/water_mesh.h>
 
-
 #include <iostream>
 
 #include <random>
@@ -335,8 +334,9 @@ void sedimentDeposition(float dt)
 		{
 			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtIndex(x, y), glm::vec3(0, 1, 0)));
 			float mag = glm::length(erosionModel->velocities[x][y]);
-
-			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::max(sinf(tiltAngle), 0.05f);
+			
+			float lmax = std::clamp(1 - std::max(0.f, erosionModel->maxErosionDepth - erosionModel->waterHeights[x][y]) / erosionModel->maxErosionDepth, 0.f, 1.f);
+			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::max(sinf(tiltAngle), 0.05f) * lmax;
 
 			if (erosionModel->suspendedSedimentAmounts[x][y] < sedimentTransportCapacity)
 			{
@@ -393,9 +393,9 @@ void transportSediments(float dt)
 		}
 	}
 
-	for (int y = 0; y < erosionModel->length; y++)
+	for (int x = 0; x < erosionModel->width; x++)
 	{
-		delete[] temp[y];
+		delete[] temp[x];
 	}
 	delete[] temp;
 }
@@ -468,8 +468,9 @@ void updateModel(float dt)
 
 int main()
 {
-	map.createProceduralHeightMap(mapSize, random);
-	// map.loadHeightMapFromFile("C:\\Users\\laure\\Downloads\\heightmapper-1676501778575.png");
+	// map.createProceduralHeightMap(mapSize, random);
+	// map.loadHeightMapFromFile("C:\\Users\\Laurent\\Downloads\\heightmapper-1681763112428.png");
+	map.loadHeightMapFromOBJFile("C:\\OpenGL Projects\\erosion_simulator\\erosion_simulator\\example_river2.obj");
 
 	distr = std::uniform_int_distribution(0, map.getWidth() * map.getLength());
 	erosionModel = new ErosionModel(map.getWidth(), map.getLength());

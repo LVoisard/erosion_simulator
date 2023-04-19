@@ -87,7 +87,7 @@ void Mesh::calculateVertices(HeightMap* map)
 			v.pos = glm::vec3(x - width / 2, map->samplePoint(x, z), z - length / 2);
 			v.normal = v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
 			v.uv = glm::vec2((float)x / width, (float)z / length) / (10.0f / width);
-			vertices[z * length + x] = v;
+			vertices[z * width + x] = v;
 		}
 	}
 }
@@ -103,7 +103,7 @@ void Mesh::calculateVertices(float*** height)
 			v.pos = glm::vec3(x - width / 2, (*height)[x][z], z - length / 2);
 			v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
 			v.uv = glm::vec2((float)x / width, (float)z / length) / (10.0f / width);
-			vertices[z * length + x] = v;
+			vertices[z * width + x] = v;
 		}
 	}
 }
@@ -115,14 +115,14 @@ void Mesh::calculateIndices()
 	int indicesIndex = 0;
 	for (int z = 0; z < (length - 1); z++) {
 		for (int x = 0; x < (width - 1); x++) {
-			indices[indicesIndex + z * (length - 1) + x] = z * length + x; // 0
-			indices[indicesIndex + z * (length - 1) + x + 1] = (z + 1) * length + x; // 2
-			indices[indicesIndex + z * (length - 1) + x + 2] = z * length + x + 1; // 1
+			indices[indicesIndex + z * (width - 1) + x] = z * width + x; // 0
+			indices[indicesIndex + z * (width - 1) + x + 1] = (z + 1) * width + x; // 2
+			indices[indicesIndex + z * (width - 1) + x + 2] = z * width + x + 1; // 1
 
 			// top triangle
-			indices[indicesIndex + z * (length - 1) + x + 3] = (z + 1) * length + x + 1; // 3
-			indices[indicesIndex + z * (length - 1) + x + 4] = z * length + x + 1; // 1
-			indices[indicesIndex + z * (length - 1) + x + 5] = (z + 1) * length + x; // 2
+			indices[indicesIndex + z * (width - 1) + x + 3] = (z + 1) * width + x + 1; // 3
+			indices[indicesIndex + z * (width - 1) + x + 4] = z * width + x + 1; // 1
+			indices[indicesIndex + z * (width - 1) + x + 5] = (z + 1) * width + x; // 2
 
 			indicesIndex += 5;
 		}
@@ -135,12 +135,12 @@ void Mesh::calculateNormals()
 	{
 		for (int x = 0; x < width; x++)
 		{
-			glm::vec3 center = vertices[y * length + x].pos;
+			glm::vec3 center = vertices[y * width + x].pos;
 
-			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * length + x].pos;
-			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * length + x].pos;
-			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * length + x + 1].pos;
-			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * length + x - 1].pos;
+			glm::vec3 top = y == length - 1 ? glm::vec3(0) : vertices[(y + 1) * width + x].pos;
+			glm::vec3 bottom = y == 0 ? glm::vec3(0) : vertices[(y - 1) * width + x].pos;
+			glm::vec3 right = x == width - 1 ? glm::vec3(0) : vertices[y * width + x + 1].pos;
+			glm::vec3 left = x == 0 ? glm::vec3(0) : vertices[y * width + x - 1].pos;
 
 			glm::vec3 v1 = normalize(right - center);
 			glm::vec3 v2 = normalize(top - center);
@@ -191,7 +191,7 @@ void Mesh::calculateNormals()
 				normal = normal1 + normal2 + normal3 + normal4;
 			}
 
-			vertices[y * length + x].normal = glm::normalize(normal);
+			vertices[y * width + x].normal = glm::normalize(normal);
 		}
 	}
 }

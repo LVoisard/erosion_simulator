@@ -108,7 +108,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(solutionDir)erosion_simulator\external\imgui;$(SolutionDir)erosion_simulator;$(SolutionDir)includes\glm;$(SolutionDir)includes\glad\include;$(SolutionDir)includes\stb-image;$(SolutionDir)includes\glfw-3.3.8.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(solutionDir)erosion_simulator\external\imgui;$(SolutionDir)erosion_simulator;$(SolutionDir)includes\glm;$(SolutionDir)includes\glad\include;$(SolutionDir)includes\stb-image;$(SolutionDir)includes\glfw-3.3.8.bin.WIN64\include;%(AdditionalIncludeDirectories);$(SolutionDir)includes\tiny-obj-loader</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
     </ClCompile>
     <Link>
@@ -127,7 +127,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)erosion_simulator\external\imgui;$(SolutionDir)erosion_simulator;$(SolutionDir)includes\glm;$(SolutionDir)includes\glad\include;$(SolutionDir)includes\stb-image;$(SolutionDir)includes\glfw-3.3.8.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)erosion_simulator\external\imgui;$(SolutionDir)erosion_simulator;$(SolutionDir)includes\glm;$(SolutionDir)includes\glad\include;$(SolutionDir)includes\stb-image;$(SolutionDir)includes\glfw-3.3.8.bin.WIN64\include;%(AdditionalIncludeDirectories);$(SolutionDir)includes\tiny-obj-loader</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
     </ClCompile>
     <Link>
