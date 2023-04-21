@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include <vector>
 
 enum class TerrainDebugMode
 {
@@ -25,6 +26,7 @@ enum class PaintMode
 	WATER_REMOVE,
 	TERRAIN_ADD,
 	TERRAIN_REMOVE,
+	WATER_SOURCE,
 	COUNT,
 };
 
@@ -57,6 +59,13 @@ struct ErosionCell
 	float terrainHardness;
 };
 
+struct WaterSource
+{
+	glm::vec3 position;
+	float radius;
+	float intensity;
+};
+
 struct ErosionModel
 {
 	int width;
@@ -84,8 +93,14 @@ struct ErosionModel
 	bool isRaining = false;
 	bool isModelRunning = false;
 
+	bool castRays = false;
+	float brushRadius = 5.0f;
+	float brushIntensity = 25.0f;
+	PaintMode paintMode = PaintMode::WATER_ADD;
 	WaterDebugMode waterDebugMode = WaterDebugMode::WATER_NORMAL;
 	TerrainDebugMode terrainDebugMode = TerrainDebugMode::TERRAIN_NORMAL;
+
+	std::vector<WaterSource> waterSources = std::vector<WaterSource>(0);
 
 	float** terrainHeights; // b
 	float** waterHeights; // d
@@ -111,6 +126,8 @@ struct ErosionModel
 		sedimentCapacity = 0.1f;
 		maxErosionDepth = 10.0f;
 		slippageAngle = 45.0f;
+
+		waterSources = std::vector<WaterSource>(0);
 
 
 		terrainHeights = new float* [width];
@@ -145,5 +162,46 @@ struct ErosionModel
 		};
 		return &cell;
 
+	}
+
+	void ToggleModelRunning()
+	{
+		isModelRunning = !isModelRunning;
+		printf("Model is %s\n", isModelRunning ? "Enabled" : "Disabled");	
+	}
+
+	void ToggleModelRaining()
+	{
+		isRaining = !isRaining;
+		printf("%s Rain\n", isRaining ? "Enabled" : "Disabled");
+	}
+
+	void TogglePaintMode()
+	{
+		int current = (int)paintMode;
+		if (current >= (int)PaintMode::COUNT - 1)
+			paintMode = static_cast<PaintMode>(0);
+		else
+			paintMode = static_cast<PaintMode>(current + 1);
+	}
+
+	void ToggleTerrainDebugMode()
+	{
+		int current = (int)terrainDebugMode;
+		if (current >= (int)TerrainDebugMode::COUNT - 1)
+			terrainDebugMode = static_cast<TerrainDebugMode>(0);
+		else
+			terrainDebugMode = static_cast<TerrainDebugMode>(current + 1);
+		printf("Terrain Debugging mode %d Enabled\n", (int)terrainDebugMode);
+	}
+
+	void ToggleWaterDebugMode()
+	{
+		int current = (int)waterDebugMode;
+		if (current >= (int)WaterDebugMode::COUNT - 1)
+			waterDebugMode = static_cast<WaterDebugMode>(0);
+		else
+			waterDebugMode = static_cast<WaterDebugMode>(current + 1);
+		printf("Water Debugging mode %d Enabled\n", (int)waterDebugMode);
 	}
 };

@@ -140,6 +140,9 @@
     <ClInclude Include="erosion_model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="simulation_parameters_ui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\main.vert" />

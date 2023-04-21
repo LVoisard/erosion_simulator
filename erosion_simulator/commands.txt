@@ -1,0 +1,3 @@
+./erosion_simulator default 8 3
+./erosion_simulator heightmap C:/OpenGLProjects/erosion_simulator/erosion_simulator/test.ppm
+./erosion_simulator obj C:/OpenGLProjects/erosion_simulator/erosion_simulator/example_river3.obj

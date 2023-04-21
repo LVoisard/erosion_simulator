@@ -1,6 +1,7 @@
 #include "window.h"
 
 #include <iostream>
+#include <string>
 
 Window::Window(int width, int height)
     :width(width), height(height)
@@ -152,45 +153,40 @@ void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     currentWindow->mouseScrollY = yoffset;
 }
 
-float simSpeed = 1.f;
-static bool showSimulationParameters = false;
 
-void Window::Menu(ErosionModel* model)
+void Window::Menu(ErosionModel* model, SimulationParametersUI* params)
 {
-
     if (ImGui::BeginMainMenuBar())
     {
-        if(ImGui::BeginMenu("Tools"))
+        if(ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters)) 
+            ImGui::MenuItem("Save Height Map", NULL, &showSaveMenu);
+            if(params->showRegenButton)
+            if(ImGui::MenuItem("Regenerate Heightmap", NULL))
             {
-                if (showSimulationParameters)
-                {
-                    width -= SIMULATION_PARAMETER_WINDOW_WIDTH;
-                }
-                else
-                {
-                    width += SIMULATION_PARAMETER_WINDOW_WIDTH;
-                }
-                
-                glViewport(0, 0, width, height);
-            }            
-            ImGui::EndMenu();            
+                params->regenerateHeightMapRequested = true;
+            }
+
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Tools"))
+        {
+            ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters);
+            ImGui::MenuItem("Paint Brush Settings", NULL, &showPaintBrushMenu);
+            ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
     }   
 
-    if (showSimulationParameters) ShowSimulationParameters(model, &showSimulationParameters);
+    if (showSimulationParameters) ShowSimulationParameters(model, params, &showSimulationParameters);
+    if (showPaintBrushMenu) ShowPaintBrushMenu(model, params, &showPaintBrushMenu);
+    if (showSaveMenu) ShowSaveMenu(params, &showSaveMenu);
 }
 
-void Window::ShowSimulationParameters(ErosionModel* model, bool *open)
+void Window::ShowSimulationParameters(ErosionModel* model, SimulationParametersUI* params, bool *open)
 {
-    if (ImGui::Begin("Simulation Parameters", open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoResize))
+    if (ImGui::Begin("Simulation Parameters", open))
     {
-        // for setting the window in the right position / size
-        ImGui::SetWindowSize(ImVec2(SIMULATION_PARAMETER_WINDOW_WIDTH, height));
-        ImGui::SetWindowPos(ImVec2(width, ImGui::GetFrameHeight()));
-
         ImGui::Checkbox("Enable Simulation", &model->isModelRunning);
         ImGui::Checkbox("Enable Rain", &model->isRaining);
         ImGui::Checkbox("Enable Sediment Slippage", &model->useSedimentSlippage);
@@ -206,15 +202,74 @@ void Window::ShowSimulationParameters(ErosionModel* model, bool *open)
         ImGui::SliderFloat("Slippage Angle", &model->slippageAngle, 0, 89, "%.0f");
         ImGui::SliderFloat("Sediment Capacity", &model->sedimentCapacity, 0.0f, 1.0f, "%.2f");
 
+        ImGui::End();
+    }
+
+}
+
+void Window::ShowPaintBrushMenu(ErosionModel* model, SimulationParametersUI* params, bool* open)
+{
+    static std::string currentBrush = "Water Add";
+    if (ImGui::Begin("Paint Brush Settings", open))
+    {
+        ImGui::Checkbox("Enable Paint Brush", &model->castRays);
+
+        ImGui::SliderFloat("Brush Size", &model->brushRadius, 1.f, 50.0f);
+        ImGui::SliderFloat("Brush Intensity", &model->brushIntensity, 1.f, 50.0f);
+
+        ImGui::Separator();
+
+        ImGui::Text(std::string("Current Brush: " + currentBrush).c_str());
+
+        if (ImGui::Button("Water Add"))
+        {
+            model->paintMode = PaintMode::WATER_ADD;
+            currentBrush = "Water Add";
+        }
+        if (ImGui::Button("Water Remove"))
+        {
+            model->paintMode = PaintMode::WATER_REMOVE;
+            currentBrush = "Water Remove";
+        }
+        if (ImGui::Button("Water Source"))
+        {
+            model->paintMode = PaintMode::WATER_SOURCE;
+            currentBrush = "Water Source";
+        }
+        if (ImGui::Button("Terrain Add"))
+        {
+            model->paintMode = PaintMode::TERRAIN_ADD;
+            currentBrush = "Terrain Add";
+        }
+        if (ImGui::Button("Terrain Remove"))
+        {
+            model->paintMode = PaintMode::TERRAIN_REMOVE;
+            currentBrush = "Terrain Remove";
+        }
+
+        ImGui::Separator();
+
+        if(ImGui::Button("Remove All Sources"))
+        {
+            model->waterSources.clear();
+        }
+        
 
         ImGui::End();
     }
-    
-    if (!*open) {
-        width += SIMULATION_PARAMETER_WINDOW_WIDTH;
-        glViewport(0, 0, width, height);
-    }
+}
 
+void Window::ShowSaveMenu(SimulationParametersUI* params, bool* open)
+{
+    if (ImGui::Begin("Save Heightmap", open))
+    {
+        ImGui::InputText("File Name", params->fileSaveName, 100);
+        if (ImGui::Button("Save"))
+        {
+            params->saveHeightMapRequested = true;
+            *open = false;
+        }
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -223,7 +278,7 @@ void Window::ShowSimulationParameters(ErosionModel* model, bool *open)
 void Window::framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     Window* currentWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
-    currentWindow->width = showSimulationParameters ? width - SIMULATION_PARAMETER_WINDOW_WIDTH : width;
+    currentWindow->width = width;
     currentWindow->height = height - ImGui::GetFrameHeight();
     currentWindow->bufferWidth = width;
     currentWindow->bufferHeight = height;

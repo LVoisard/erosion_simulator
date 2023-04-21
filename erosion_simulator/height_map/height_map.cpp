@@ -63,7 +63,7 @@ void HeightMap::loadHeightMapFromFile(std::string fileName)
 	stbi_image_free(img);
 }
 
-void HeightMap::loadHeightMapFromOBJFile(std::string fileName)
+void HeightMap::loadHeightMapFromOBJFile(std::string fileName, float heightDiff)
 {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
@@ -124,7 +124,7 @@ void HeightMap::loadHeightMapFromOBJFile(std::string fileName)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			heightMap[x][y] = vertices[y * width + x].y * 256.0 + (float)x / (width / 20.0);
+			heightMap[x][y] = vertices[y * width + x].y * 256.0 + (float)x / (width / heightDiff);
 		}
 	}
 }
@@ -171,14 +171,31 @@ void HeightMap::saveHeightMapPPM(std::string fileName)
 		}
 	}
 
-	save_ppm(fileName, buffer, width, length);
+	save_ppm(fileName +".ppm", buffer, width, length);
+	buffer.clear();
+}
+
+void HeightMap::saveHeightMapPPM(std::string fileName, float*** hmp)
+{
+	std::vector<double> buffer(3 * width * length);
+
+	for (int y = 0; y < length; y++) {
+		for (int x = 0; x < width; x++) {
+			double color = std::clamp((double)(*hmp[x][y] + minHeight) / (double)(maxHeight + minHeight), 0.0, 1.0);
+			buffer[3 * y * width + 3 * x + 0] = color;
+			buffer[3 * y * width + 3 * x + 1] = color;
+			buffer[3 * y * width + 3 * x + 2] = color;
+		}
+	}
+
+	save_ppm(fileName + ".ppm", buffer, width, length);
 	buffer.clear();
 }
 
 void HeightMap::generateHeightMap()
 {
 	if (width != length)
-		throw std::exception("Width and Lenght of the heightmap do not match");
+		throw std::exception("Width and Length of the heightmap do not match");
 
 	int size = width;
 

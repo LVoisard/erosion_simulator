@@ -1,3 +1,4 @@
+#include "simulation_parameters_ui.h"
 #include "height_map/height_map.h"
 #include "mesh/terrain_mesh.h"
 #include "window/window.h"
@@ -10,6 +11,7 @@
 #include <vector>
 #include <chrono>
 #include <mesh/water_mesh.h>
+#include "external/simpleppm.h"
 
 #include <iostream>
 
@@ -18,7 +20,6 @@
 
 #define GLM_FORCE_RADIANS
 const float GRAVITY_ACCELERATION = 9.807f;
-
 
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
@@ -52,8 +53,8 @@ Skybox skybox(skyboxFacesLocation);
 // 256 is better
 //2 ^ n
 int mapSize = 512;
-float minHeight = -50;
-float maxHeight = 50;
+float minHeight = -128;
+float maxHeight = 128;
 float random = 4;
 HeightMap map(minHeight, maxHeight);
 
@@ -61,16 +62,13 @@ TerrainMesh* terrainMesh;
 WaterMesh* waterMesh;
 
 ErosionModel* erosionModel;
+SimulationParametersUI* simParams;
 
 std::default_random_engine gen;
 std::uniform_int_distribution<> distr;
 
 float fov = 90.0f;
-bool castRays = false;
 glm::vec3 cursorOverPosition = glm::vec3(INT_MIN);
-float brushRadius = 5.0f;
-float brushIntensity = 25.0f;
-PaintMode paintMode = PaintMode::WATER_ADD;
 
 void raycastThroughScene()
 {
@@ -155,12 +153,20 @@ void addPrecipitation(float dt) {
 			if (erosionModel->waterHeights[x][y] + erosionModel->terrainHeights[x][y] < erosionModel->seaLevel)
 				erosionModel->waterHeights[x][y] += dt;
 			if (erosionModel->isRaining) {
-				if (distr(gen) <= erosionModel->rainAmount * mapSize)
+				if (distr(gen) <= erosionModel->rainAmount * erosionModel->width)
 					erosionModel->waterHeights[x][y] += dt * erosionModel->rainIntensity * erosionModel->simulationSpeed;
+			}
+
+			for (WaterSource waterSource : erosionModel->waterSources)
+			{
+				glm::vec3 mapPos = terrainMesh->getPositionAtIndex(x, y);
+				if (glm::length(glm::vec2(waterSource.position.x, waterSource.position.z) - glm::vec2(mapPos.x, mapPos.z)) < waterSource.radius)
+				{
+					erosionModel->waterHeights[x][y] += dt * waterSource.intensity;
+				}
 			}
 		}
 	}
-
 }
 void paint(float dt) {
 	if (window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT))
@@ -170,28 +176,51 @@ void paint(float dt) {
 			for (int x = 0; x < erosionModel->width; x++)
 			{
 				glm::vec3 mapPos = terrainMesh->getPositionAtIndex(x, y);
-				if (glm::length(glm::vec2(cursorOverPosition.x, cursorOverPosition.z) - glm::vec2(mapPos.x, mapPos.z)) < brushRadius)
+				if (glm::length(glm::vec2(cursorOverPosition.x, cursorOverPosition.z) - glm::vec2(mapPos.x, mapPos.z)) < erosionModel->brushRadius)
 				{
-					switch (paintMode)
+					switch (erosionModel->paintMode)
 					{
 					case PaintMode::WATER_ADD:
-						erosionModel->waterHeights[x][y] += dt * brushIntensity;
+						erosionModel->waterHeights[x][y] += dt * erosionModel->brushIntensity;
 						break;
 					case PaintMode::WATER_REMOVE:
-						erosionModel->waterHeights[x][y] -= dt * brushIntensity;
+						erosionModel->waterHeights[x][y] -= dt * erosionModel->brushIntensity;
 						erosionModel->waterHeights[x][y] = std::max(erosionModel->waterHeights[x][y], 0.0f);
 						break;
 					case PaintMode::TERRAIN_ADD:
-						erosionModel->terrainHeights[x][y] += dt * brushIntensity;// *(1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						erosionModel->terrainHeights[x][y] += dt * erosionModel->brushIntensity;// *(1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
 					case PaintMode::TERRAIN_REMOVE:
-						erosionModel->terrainHeights[x][y] -= dt * brushIntensity;//  * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
+						erosionModel->terrainHeights[x][y] -= dt * erosionModel->brushIntensity;//  * (1 - glm::length(cursorOverPosition - mapPos) / brushRadius);
 						break;
 					default:
-						throw std::exception("invalid paint mode");
+						break;
 					}
 				}
 			}
+		}
+	}
+
+	if (window.getMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT))
+	{
+		if (erosionModel->paintMode == PaintMode::WATER_SOURCE)
+		{
+			for (int y = 0; y < erosionModel->length; y++)
+			{
+				for (int x = 0; x < erosionModel->width; x++)
+				{
+					glm::vec3 mapPos = terrainMesh->getPositionAtIndex(x, y);
+					if (glm::length(glm::vec2(cursorOverPosition.x, cursorOverPosition.z) - glm::vec2(mapPos.x, mapPos.z)) < 0.5f)
+					{
+						WaterSource source = WaterSource();
+						source.position = mapPos;
+						source.intensity = erosionModel->brushIntensity;
+						source.radius = erosionModel->brushRadius;
+
+						erosionModel->waterSources.push_back(source);
+					}
+				}
+			}			
 		}
 	}
 }
@@ -334,7 +363,7 @@ void sedimentDeposition(float dt)
 		{
 			float tiltAngle = acosf(glm::dot(terrainMesh->getNormalAtIndex(x, y), glm::vec3(0, 1, 0)));
 			float mag = glm::length(erosionModel->velocities[x][y]);
-			
+
 			float lmax = std::clamp(1 - std::max(0.f, erosionModel->maxErosionDepth - erosionModel->waterHeights[x][y]) / erosionModel->maxErosionDepth, 0.f, 1.f);
 			float sedimentTransportCapacity = mag * erosionModel->sedimentCapacity * std::max(sinf(tiltAngle), 0.05f) * lmax;
 
@@ -374,9 +403,9 @@ void transportSediments(float dt)
 			int x1 = x;
 			int y1 = y;
 
-			if((erosionModel->velocities[x][y].y) / (erosionModel->velocities[x][y].x) > 0.293f)
+			if ((erosionModel->velocities[x][y].y) / (erosionModel->velocities[x][y].x) > 0.293f)
 				x1 = prevX < x ? std::floor(prevX) : std::ceil(prevX);
-			
+
 			if ((erosionModel->velocities[x][y].x) / (erosionModel->velocities[x][y].y) > 0.293f)
 				y1 = prevY < y ? std::floor(prevY) : std::ceil(prevY);
 
@@ -465,21 +494,158 @@ void updateModel(float dt)
 	waterMesh->updateMeshFromHeights(&erosionModel->terrainHeights, &erosionModel->waterHeights, &erosionModel->velocities, &erosionModel->suspendedSedimentAmounts);
 }
 
-
-int main()
+void HandleHeightmapResets()
 {
-	// map.createProceduralHeightMap(mapSize, random);
-	// map.loadHeightMapFromFile("C:\\Users\\Laurent\\Downloads\\heightmapper-1681763112428.png");
-	map.loadHeightMapFromOBJFile("C:\\OpenGL Projects\\erosion_simulator\\erosion_simulator\\example_river2.obj");
+	if (simParams->regenerateHeightMapRequested || window.getKeyDown(GLFW_KEY_R)) {
+		simParams->regenerateHeightMapRequested = false;
+		map.changeSeed();
+		resetModel();
+	}
+
+	if (simParams->saveHeightMapRequested)
+	{
+		simParams->saveHeightMapRequested = false;
+		std::vector<double> buffer(3 * map.getWidth() * map.getLength());
+
+		for (int y = 0; y < map.getLength(); y++) {
+			for (int x = 0; x < map.getWidth(); x++) {
+				double color = std::clamp((double)(erosionModel->terrainHeights[x][y] + minHeight) / (double)(maxHeight + minHeight), 0.0, 1.0);
+				buffer[3 * y * map.getWidth() + 3 * x + 0] = color;
+				buffer[3 * y * map.getWidth() + 3 * x + 1] = color;
+				buffer[3 * y * map.getWidth() + 3 * x + 2] = color;
+			}
+		}
+		std::string fileName = std::string(simParams->fileSaveName) + ".ppm";
+		save_ppm(fileName, buffer, map.getWidth(), map.getLength());
+		buffer.clear();
+	}
+
+
+}
+void HandleKeyboardInputs()
+{
+	if (window.getKeyDown(GLFW_KEY_SPACE)) {
+		erosionModel->castRays = !erosionModel->castRays;
+		if (!erosionModel->castRays)
+			cursorOverPosition = glm::vec3(INT_MIN);
+	}
+
+	if (window.getKeyDown(GLFW_KEY_ENTER)) {
+		erosionModel->ToggleModelRunning();
+	}
+
+	if (window.getKeyDown(GLFW_KEY_P)) {
+		erosionModel->ToggleModelRaining();
+	}
+
+	if (window.getKeyDown(GLFW_KEY_V)) {
+		erosionModel->ToggleWaterDebugMode();
+	}
+
+	if (window.getKeyDown(GLFW_KEY_B)) {
+		erosionModel->ToggleTerrainDebugMode();
+	}
+
+	if (window.getKeyDown(GLFW_KEY_TAB) && erosionModel->castRays) {
+		erosionModel->TogglePaintMode();
+	}
+}
+void HandleCamera(float deltaTime)
+{
+	if (window.getMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
+	{
+		camera.toggleViewMode();
+		if (camera.inFreeView())
+			cursorOverPosition = glm::vec3(INT_MIN);
+	}
+
+	if (window.getMouseScrollY() != 0 && !camera.inFreeView())
+	{
+		erosionModel->brushRadius += window.getMouseScrollY();
+		erosionModel->brushRadius = std::clamp(erosionModel->brushRadius, 1.0f, 50.0f);
+	}
+
+	camera.update(deltaTime);
+
+	if (erosionModel->castRays && !camera.inFreeView())
+		raycastThroughScene();
+}
+
+void UpdateShaders(glm::mat4& view, glm::mat4& proj, glm::mat4& model, float& deltaTime)
+{
+	skybox.DrawSkybox(view, proj);
+
+	// draw our first triangle
+	mainShader.use();
+	mainShader.setMat4("model", model);
+	mainShader.setMat4("view", view);
+	mainShader.setMat4("projection", proj);
+	mainShader.setUniformBool("checkMousePos", erosionModel->castRays);
+	mainShader.setUniformVector3("cursorOverTerrainPos", cursorOverPosition);
+	mainShader.setUniformFloat("brushRadius", &erosionModel->brushRadius);
+	mainShader.setUniformInt("debugMode", (int)erosionModel->terrainDebugMode);
+
+
+	mainShader.setTexture("texture0", 0);
+	grassTexture.use(GL_TEXTURE0);
+	mainShader.setTexture("texture1", 1);
+	sandTexture.use(GL_TEXTURE1);
+	mainShader.setTexture("texture2", 2);
+	rockTexture.use(GL_TEXTURE2);
+
+	terrainMesh->draw();
+	mainShader.stop();
+
+	waterShader.use();
+	waterShader.setMat4("model", model);
+	waterShader.setMat4("view", view);
+	waterShader.setMat4("projection", proj);
+	waterShader.setUniformVector3("viewerPosition", camera.getPosition());
+	waterShader.setUniformFloat("deltaTime", &deltaTime);
+	waterShader.setUniformInt("waterDebugMode", (int)erosionModel->waterDebugMode);
+	waterNormalTexture.use();
+	waterShader.setTexture("texture0", GL_TEXTURE0);
+
+
+	waterMesh->draw();
+	waterShader.stop();
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc <= 1)
+	{
+		printf("Invalid arguments, possible commands: \n");
+		printf("default (n (1 - 11)) (randomness factor(0-4)) \n");
+		printf("heightmap (filepath) \n");
+		printf("obj (filepath) (slopeHeight)\n");
+		return -1;
+	}
+
+	for (int i = 0; i < argc; i++)
+	{
+		printf(argv[i]);
+	}
+	if (std::string(argv[1]) == "default")
+	{
+		map.createProceduralHeightMap(std::pow(2, std::stoi(argv[2])), std::stoi(argv[3]));
+	}
+	else if (std::string(argv[1]) == "heightmap")
+	{
+		map.loadHeightMapFromFile(std::string(argv[2]));
+	}
+	else if (std::string(argv[1]) == "obj")
+	{
+		map.loadHeightMapFromOBJFile(std::string(argv[2]), argc == 4 ? std::stoi(argv[3]) : 0);
+	}
 
 	distr = std::uniform_int_distribution(0, map.getWidth() * map.getLength());
 	erosionModel = new ErosionModel(map.getWidth(), map.getLength());
+	simParams = new SimulationParametersUI(std::string(argv[1]) == "default");
 	initModel();
 
 	terrainMesh = new TerrainMesh(map.getWidth(), map.getLength(), &erosionModel->terrainHeights, mainShader);
 	waterMesh = new WaterMesh(map.getWidth(), map.getLength(), &erosionModel->terrainHeights, &erosionModel->waterHeights, waterShader);
-
-	map.saveHeightMapPPM("heightMap.ppm");
 
 	terrainMesh->init();
 	waterMesh->init();
@@ -495,52 +661,11 @@ int main()
 			std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 		currentTime = newTime;
 
-		// disable until update all meshes is done
-		if (window.getKeyDown(GLFW_KEY_SPACE)) {
-			castRays = !castRays;
-			if (!castRays)
-				cursorOverPosition = glm::vec3(INT_MIN);
-		}
-
-		if (window.getKeyDown(GLFW_KEY_R)) {
-			map.changeSeed();
-			resetModel();
-		}
-
-		if (window.getKeyDown(GLFW_KEY_ENTER)) {
-			erosionModel->isModelRunning = !erosionModel->isModelRunning;
-			printf("Model is %s\n", erosionModel->isModelRunning ? "Enabled" : "Disabled");
-		}
-
-		if (window.getKeyDown(GLFW_KEY_P)) {
-			erosionModel->isRaining = !erosionModel->isRaining;
-			printf("%s Rain\n", erosionModel->isRaining ? "Enabled" : "Disabled");
-		}
-
-		if (window.getKeyDown(GLFW_KEY_V)) {
-			int current = (int)erosionModel->waterDebugMode;
-			if (current >= (int)WaterDebugMode::COUNT - 1)
-				erosionModel->waterDebugMode = static_cast<WaterDebugMode>(0);
-			else
-				erosionModel->waterDebugMode = static_cast<WaterDebugMode>(current + 1);
-			printf("Water Debugging mode %d Enabled\n", (int)erosionModel->waterDebugMode);
-		}
-
-		if (window.getKeyDown(GLFW_KEY_B)) {
-			int current = (int)erosionModel->terrainDebugMode;
-			if (current >= (int)TerrainDebugMode::COUNT - 1)
-				erosionModel->terrainDebugMode = static_cast<TerrainDebugMode>(0);
-			else
-				erosionModel->terrainDebugMode = static_cast<TerrainDebugMode>(current + 1);
-			printf("Terrain Debugging mode %d Enabled\n", (int)erosionModel->terrainDebugMode);
-		}
-
-		if (window.getKeyDown(GLFW_KEY_TAB) && castRays) {
-			int current = (int)paintMode;
-			if (current >= (int)PaintMode::COUNT - 1)
-				paintMode = static_cast<PaintMode>(0);
-			else
-				paintMode = static_cast<PaintMode>(current + 1);
+		HandleHeightmapResets();
+		// stop taking input
+		if (!window.showSaveMenu) {
+			HandleKeyboardInputs();
+			HandleCamera(deltaTime);
 		}
 
 		if (erosionModel->isModelRunning)
@@ -549,26 +674,6 @@ int main()
 			//printf("Time to render 1 simulation second: %f\n", deltaTime * 60.f);
 			updateModel(0.033333f);
 		}
-
-		if (window.getMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
-		{
-			camera.toggleViewMode();
-			if (camera.inFreeView())
-				cursorOverPosition = glm::vec3(INT_MIN);
-		}
-
-		if (window.getMouseScrollY() != 0 && !camera.inFreeView())
-		{
-			brushRadius += window.getMouseScrollY();
-			brushRadius = std::clamp(brushRadius, 1.0f, 50.0f);
-		}
-
-		camera.update(deltaTime);
-
-		if (castRays && !camera.inFreeView())
-			raycastThroughScene();
-
-
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -579,46 +684,9 @@ int main()
 		glm::mat4 model = glm::mat4(1.0f);
 		glm::mat4 view = camera.getViewMatrix();
 
-		skybox.DrawSkybox(view, proj);
+		UpdateShaders(view, proj, model, deltaTime);
 
-		// draw our first triangle
-		mainShader.use();
-		mainShader.setMat4("model", model);
-		mainShader.setMat4("view", view);
-		mainShader.setMat4("projection", proj);
-		mainShader.setUniformBool("checkMousePos", castRays);
-		mainShader.setUniformVector3("cursorOverTerrainPos", cursorOverPosition);
-		mainShader.setUniformFloat("brushRadius", &brushRadius);
-		mainShader.setUniformInt("debugMode", (int)erosionModel->terrainDebugMode);
-
-
-		mainShader.setTexture("texture0", 0);
-		grassTexture.use(GL_TEXTURE0);
-		mainShader.setTexture("texture1", 1);
-		sandTexture.use(GL_TEXTURE1);
-		mainShader.setTexture("texture2", 2);
-		rockTexture.use(GL_TEXTURE2);
-
-		terrainMesh->draw();
-		mainShader.stop();
-
-		waterShader.use();
-		waterShader.setMat4("model", model);
-		waterShader.setMat4("view", view);
-		waterShader.setMat4("projection", proj);
-		waterShader.setUniformVector3("viewerPosition", camera.getPosition());
-		waterShader.setUniformFloat("deltaTime", &deltaTime);
-		waterShader.setUniformInt("waterDebugMode", (int)erosionModel->waterDebugMode);
-		waterNormalTexture.use();
-		waterShader.setTexture("texture0", GL_TEXTURE0);
-
-
-		waterMesh->draw();
-		waterShader.stop();
-
-		window.Menu(erosionModel);
-		// window.IMGuiTest();
-
+		window.Menu(erosionModel, simParams);
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

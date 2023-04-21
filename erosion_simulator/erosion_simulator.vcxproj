@@ -177,6 +177,7 @@
     <ClInclude Include="mesh\mesh.h" />
     <ClInclude Include="mesh\terrain_mesh.h" />
     <ClInclude Include="shader\shader.h" />
+    <ClInclude Include="simulation_parameters_ui.h" />
     <ClInclude Include="skybox\skybox.h" />
     <ClInclude Include="texture\texture.h" />
     <ClInclude Include="mesh\water_mesh.h" />

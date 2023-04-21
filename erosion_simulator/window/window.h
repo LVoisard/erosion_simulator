@@ -5,6 +5,7 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "erosion_model.h"
+#include "simulation_parameters_ui.h"
 
 const int SIMULATION_PARAMETER_WINDOW_WIDTH = 600;
 
@@ -43,8 +44,11 @@ public:
 	double getMouseScrollY() { return mouseScrollY; }
 	
 	
-	void Menu(ErosionModel*);
-	void IMGuiTest();
+	void Menu(ErosionModel*, SimulationParametersUI*);
+	bool showSimulationParameters;
+	bool showPaintBrushMenu;
+	bool showSaveMenu;
+
 private:
 	int width;
 	int height;
@@ -68,15 +72,15 @@ private:
 	double mouseDeltaX = 0;
 	double mouseDeltaY = 0;
 
-	void ShowSimulationParameters(ErosionModel* model, bool* open);
+	
+	void ShowSimulationParameters(ErosionModel* model, SimulationParametersUI* params, bool* open);
+	void ShowPaintBrushMenu(ErosionModel* model, SimulationParametersUI* params, bool* open);
+	void ShowSaveMenu(SimulationParametersUI* params, bool* open);
 
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void cursor_position_callback(GLFWwindow* window, double xPos, double yPos);
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 	static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 	static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-
-
-
 };
 
