@@ -220,7 +220,7 @@ void paint(float dt) {
 						erosionModel->waterSources.push_back(source);
 					}
 				}
-			}			
+			}
 		}
 	}
 }
@@ -340,15 +340,11 @@ void calculateModelWaterHeights(float dt)
 			float xVelocity = (wX / (erosionModel->lx));
 			float yVelocity = (wY / (erosionModel->ly));
 
-			if (abs(avgWaterHeight) < 1) {
-				xVelocity *= avgWaterHeight;
-				yVelocity *= avgWaterHeight;
-			}
-			else
-			{
-				xVelocity /= avgWaterHeight;
-				yVelocity /= avgWaterHeight;
-			}
+			// paper says to scale velocity with water volume 
+			// but I found the volume delta to be better
+			xVelocity *= (nextWaterHeight - currentWaterHeight);
+			yVelocity *= (nextWaterHeight - currentWaterHeight);
+
 
 			erosionModel->velocities[x][y] = glm::vec2(xVelocity, yVelocity);
 			erosionModel->waterHeights[x][y] = nextWaterHeight;

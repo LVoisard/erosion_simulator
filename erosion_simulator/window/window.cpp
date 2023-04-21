@@ -158,7 +158,7 @@ void Window::Menu(ErosionModel* model, SimulationParametersUI* params)
 {
     if (ImGui::BeginMainMenuBar())
     {
-        if(ImGui::BeginMenu("File"))
+        if (ImGui::BeginMenu("File"))
         {
             ImGui::MenuItem("Save Height Map", NULL, &showSaveMenu);
             if(params->showRegenButton)
@@ -173,6 +173,50 @@ void Window::Menu(ErosionModel* model, SimulationParametersUI* params)
         {
             ImGui::MenuItem("Simulation Parameters", NULL, &showSimulationParameters);
             ImGui::MenuItem("Paint Brush Settings", NULL, &showPaintBrushMenu);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Debug")) 
+        {
+            if (ImGui::BeginMenu("Terrain Debug Modes"))
+            {
+                if(ImGui::MenuItem("Normal", NULL))
+                {
+                    model->terrainDebugMode = TerrainDebugMode::TERRAIN_NORMAL;
+                }
+                if (ImGui::MenuItem("Erosion Susceptibility", NULL))
+                {
+                    model->terrainDebugMode = TerrainDebugMode::TERRAIN_SUSCEPTIBILITY;
+                }
+                if (ImGui::MenuItem("Sediment Deposition", NULL))
+                {
+                    model->terrainDebugMode = TerrainDebugMode::TERRAIN_SEDIMENT_DEPOSITION;
+                }
+                if (ImGui::MenuItem("Invisible", NULL))
+                {
+                    model->terrainDebugMode = TerrainDebugMode::TERRAIN_INVISIBLE;
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Water Debug Modes"))
+            {
+                if (ImGui::MenuItem("Normal", NULL))
+                {
+                    model->waterDebugMode = WaterDebugMode::WATER_NORMAL;
+                }
+                if (ImGui::MenuItem("Velocity", NULL))
+                {
+                    model->waterDebugMode = WaterDebugMode::WATER_VELOCITY;
+                }
+                if (ImGui::MenuItem("Sediment Transport", NULL))
+                {
+                    model->waterDebugMode = WaterDebugMode::WATER_SEDIMENT_TRANSPORT;
+                }
+                if (ImGui::MenuItem("Invisible", NULL))
+                {
+                    model->waterDebugMode = WaterDebugMode::WATER_INVISIBLE;
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
