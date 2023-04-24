@@ -70,6 +70,8 @@ std::uniform_int_distribution<> distr;
 float fov = 90.0f;
 glm::vec3 cursorOverPosition = glm::vec3(INT_MIN);
 
+float timePast = 0.0f;
+
 void raycastThroughScene()
 {
 	float pixelSize = (2 * tanf(fov) / 2 / window.getHeight());
@@ -145,6 +147,8 @@ void resetModel()
 }
 void addPrecipitation(float dt) {
 
+	float sinIntensity = std::max(0.f, std::sinf(timePast / (erosionModel->waveInterval) * erosionModel->simulationSpeed));
+
 	for (int y = 0; y < erosionModel->length; y++)
 	{
 		for (int x = 0; x < erosionModel->width; x++)
@@ -165,6 +169,30 @@ void addPrecipitation(float dt) {
 					erosionModel->waterHeights[x][y] += dt * waterSource.intensity;
 				}
 			}
+
+			if (erosionModel->generateWaves && (erosionModel->terrainHeights[x][y] - erosionModel->seaLevel) < erosionModel->waveStrength * erosionModel->simulationSpeed * dt)
+			{
+				switch (erosionModel->waveDirection)
+				{
+					case WaveDirection::NORTH:
+						if (y == 0)
+							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+						break;
+					case WaveDirection::SOUTH:
+						if (y == erosionModel->length - 1)
+							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+						break;
+					case WaveDirection::EAST:
+						if (x == erosionModel->width - 1)
+							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+						break;
+					case WaveDirection::WEST:
+						if (x == 0)
+							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+						break;
+				}
+			}
+
 		}
 	}
 }
@@ -656,6 +684,7 @@ int main(int argc, char* argv[])
 		float deltaTime =
 			std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 		currentTime = newTime;
+		timePast += deltaTime;
 
 		HandleHeightmapResets();
 		// stop taking input

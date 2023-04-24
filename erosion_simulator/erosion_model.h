@@ -30,6 +30,15 @@ enum class PaintMode
 	COUNT,
 };
 
+enum class WaveDirection
+{
+	NORTH,
+	SOUTH,
+	EAST,
+	WEST,
+	COUNT,
+};
+
 struct FlowFlux
 {
 	float left;
@@ -99,6 +108,11 @@ struct ErosionModel
 	PaintMode paintMode = PaintMode::WATER_ADD;
 	WaterDebugMode waterDebugMode = WaterDebugMode::WATER_NORMAL;
 	TerrainDebugMode terrainDebugMode = TerrainDebugMode::TERRAIN_NORMAL;
+
+	bool generateWaves = false;
+	float waveStrength = 5.f;
+	float waveInterval = 1.f;
+	WaveDirection waveDirection = WaveDirection::NORTH;
 
 	std::vector<WaterSource> waterSources = std::vector<WaterSource>(0);
 

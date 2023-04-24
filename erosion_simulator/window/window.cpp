@@ -161,10 +161,11 @@ void Window::Menu(ErosionModel* model, SimulationParametersUI* params)
         if (ImGui::BeginMenu("File"))
         {
             ImGui::MenuItem("Save Height Map", NULL, &showSaveMenu);
-            if(params->showRegenButton)
-            if(ImGui::MenuItem("Regenerate Heightmap", NULL))
-            {
-                params->regenerateHeightMapRequested = true;
+            if (params->showRegenButton) {
+                if (ImGui::MenuItem("Regenerate Heightmap", NULL))
+                {
+                    params->regenerateHeightMapRequested = true;
+                }
             }
 
             ImGui::EndMenu();
@@ -229,6 +230,7 @@ void Window::Menu(ErosionModel* model, SimulationParametersUI* params)
 
 void Window::ShowSimulationParameters(ErosionModel* model, SimulationParametersUI* params, bool *open)
 {
+    static std::string waterDirText = "North";
     if (ImGui::Begin("Simulation Parameters", open))
     {
         ImGui::Checkbox("Enable Simulation", &model->isModelRunning);
@@ -246,9 +248,41 @@ void Window::ShowSimulationParameters(ErosionModel* model, SimulationParametersU
         ImGui::SliderFloat("Slippage Angle", &model->slippageAngle, 0, 89, "%.0f");
         ImGui::SliderFloat("Sediment Capacity", &model->sedimentCapacity, 0.0f, 1.0f, "%.2f");
 
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        ImGui::Text("Water Parameters");
+        ImGui::Checkbox("Enable Ocean Waves", &model->generateWaves);
+
+        ImGui::SliderFloat("Wave Strength", &model->waveStrength, 5.0f, 100.0f, "%.2f");
+        ImGui::SliderFloat("Wave Interval", &model->waveInterval, 0.1f, 10.0f, "%.2f");
+
+
+        ImGui::Text(std::string("Wave Direction: " + waterDirText).c_str());
+        if (ImGui::Button("North"))
+        {
+            waterDirText = "North";
+            model->waveDirection = WaveDirection::NORTH;
+        }
+        if (ImGui::Button("South"))
+        {
+            waterDirText = "South";
+            model->waveDirection = WaveDirection::SOUTH;
+        }
+        if (ImGui::Button("East"))
+        {
+            waterDirText = "East";
+            model->waveDirection = WaveDirection::EAST;
+        }
+        if (ImGui::Button("West"))
+        {
+            waterDirText = "West";
+            model->waveDirection = WaveDirection::WEST;
+        }
+
         ImGui::End();
     }
-
 }
 
 void Window::ShowPaintBrushMenu(ErosionModel* model, SimulationParametersUI* params, bool* open)
