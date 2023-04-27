@@ -71,9 +71,9 @@ void main()
 		return;
 	}
 
+	float velocity = length(fragWaterVelocity);
 	// water velocity
 	if(waterDebugMode == 1) {
-		float velocity = length(fragWaterVelocity);
 		fragColor = vec4(getRed(velocity), getGreen(velocity), getBlue(velocity), 1);
 		return;
 	}
@@ -92,9 +92,6 @@ void main()
 
 	vec3 baseColor = vec3(15.0 / 256, 94.0 / 256, 156.0 / 256.0);
 
-	
-
-
 	float a = smoothstep(minWaterHeight, maxWaterHeight, fragWaterHeight);
 	float alpha = mix(minWaterOpacity, maxWaterOpacity, a);
 
@@ -107,15 +104,11 @@ void main()
 	vec3 viewingRay = normalize(viewerPosition - fragPos);
 	vec3 reflectedvertex = reflect(-lightDirection, normal);		
 	float specularFactor = pow(max(dot(viewingRay, reflectedvertex),0), 256);
-	vec4 specularColor = vec4(0.5 * vec3(specularFactor), 1.0);		
-	
-	
+	vec4 specularColor = vec4(0.5 * vec3(specularFactor), 1.0);
 	
 
-	
+	baseColor -= vec3(0.1 * min(1, velocity));
 	vec4 base = vec4(baseColor, 1.0);
-//	if(fragWaterHeight < minWaterHeight + 0.01)
-//		base += vec4(1) * (1 - alpha);
 
 	fragColor = clamp(base *(diffuseColor + specularColor), 0, 1);
 	fragColor.a = alpha;

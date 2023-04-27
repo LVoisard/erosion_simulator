@@ -137,7 +137,7 @@ struct ErosionModel
 		ly = 1.0f;
 		area = lx * ly;
 
-		sedimentCapacity = 0.1f;
+		sedimentCapacity = 0.01f;
 		maxErosionDepth = 10.0f;
 		slippageAngle = 45.0f;
 

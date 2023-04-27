@@ -133,8 +133,6 @@ void HeightMap::setHeightRange(double minHeight, double maxHeight)
 {
 	this->minHeight = minHeight;
 	this->maxHeight = maxHeight;
-	heightDistr = std::uniform_real_distribution<>(minHeight, maxHeight);
-	regenerateHeightMap();
 }
 
 void HeightMap::setRandomRange(double random)

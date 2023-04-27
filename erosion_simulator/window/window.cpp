@@ -347,6 +347,8 @@ void Window::ShowSaveMenu(SimulationParametersUI* params, bool* open)
             params->saveHeightMapRequested = true;
             *open = false;
         }
+
+        ImGui::End();
     }
 }
 

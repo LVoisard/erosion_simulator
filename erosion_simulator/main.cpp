@@ -170,26 +170,26 @@ void addPrecipitation(float dt) {
 				}
 			}
 
-			if (erosionModel->generateWaves && (erosionModel->terrainHeights[x][y] - erosionModel->seaLevel) < erosionModel->waveStrength * erosionModel->simulationSpeed * dt)
+			if (erosionModel->generateWaves && (erosionModel->terrainHeights[x][y] - erosionModel->seaLevel) < 0)
 			{
 				switch (erosionModel->waveDirection)
 				{
-					case WaveDirection::NORTH:
-						if (y == 0)
-							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
-						break;
-					case WaveDirection::SOUTH:
-						if (y == erosionModel->length - 1)
-							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
-						break;
-					case WaveDirection::EAST:
-						if (x == erosionModel->width - 1)
-							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
-						break;
-					case WaveDirection::WEST:
-						if (x == 0)
-							erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
-						break;
+				case WaveDirection::NORTH:
+					if (y == 0)
+						erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+					break;
+				case WaveDirection::SOUTH:
+					if (y == erosionModel->length - 1)
+						erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+					break;
+				case WaveDirection::EAST:
+					if (x == erosionModel->width - 1)
+						erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+					break;
+				case WaveDirection::WEST:
+					if (x == 0)
+						erosionModel->waterHeights[x][y] += dt * sinIntensity * erosionModel->waveStrength * erosionModel->simulationSpeed;
+					break;
 				}
 			}
 
@@ -365,13 +365,13 @@ void calculateModelWaterHeights(float dt)
 
 			float avgWaterHeight = (currentWaterHeight + nextWaterHeight) / 2;
 
-			float xVelocity = (wX / (erosionModel->lx));
-			float yVelocity = (wY / (erosionModel->ly));
+			float xVelocity = (wX / (erosionModel->lx * std::max(1.0f, avgWaterHeight)));
+			float yVelocity = (wY / (erosionModel->ly * std::max(1.0f, avgWaterHeight)));
 
 			// paper says to scale velocity with water volume 
-			// but I found the volume delta to be better
-			xVelocity *= (nextWaterHeight - currentWaterHeight);
-			yVelocity *= (nextWaterHeight - currentWaterHeight);
+			// but I found to leave it as it is is fine
+			//xVelocity /= std::max(1.0f, avgWaterHeight);
+			//yVelocity /= avgWaterHeight;
 
 
 			erosionModel->velocities[x][y] = glm::vec2(xVelocity, yVelocity);
@@ -427,14 +427,32 @@ void transportSediments(float dt)
 			int x1 = x;
 			int y1 = y;
 
-			if ((erosionModel->velocities[x][y].y) / (erosionModel->velocities[x][y].x) > 0.293f)
+			if (abs((erosionModel->velocities[x][y].y) / (erosionModel->velocities[x][y].x)) < 0.7f)
 				x1 = prevX < x ? std::floor(prevX) : std::ceil(prevX);
 
-			if ((erosionModel->velocities[x][y].x) / (erosionModel->velocities[x][y].y) > 0.293f)
+			if (abs((erosionModel->velocities[x][y].x) / (erosionModel->velocities[x][y].y)) < 0.7f)
 				y1 = prevY < y ? std::floor(prevY) : std::ceil(prevY);
 
 			if (erosionModel->getCell(x1, y1) != nullptr)
 				temp[x][y] = erosionModel->suspendedSedimentAmounts[x1][y1];
+			else
+			{
+				int count = 0;
+				float sum = 0.f;
+				for (int j = -1; j <= 1; j++)
+				{
+					for (int i = -1; i <= 1; i++)
+					{
+						if (abs(i) == abs(j)) continue;
+						if (erosionModel->getCell(x - i, y - j) != nullptr) {
+							count++;
+							sum += erosionModel->suspendedSedimentAmounts[x - i][y - j];
+						}
+					}
+				}
+
+				temp[x][y] = sum / count;
+			}
 		}
 	}
 
@@ -652,15 +670,18 @@ int main(int argc, char* argv[])
 	}
 	if (std::string(argv[1]) == "default")
 	{
+		map.setHeightRange(std::stoi(argv[4]), std::stoi(argv[5]));
 		map.createProceduralHeightMap(std::pow(2, std::stoi(argv[2])), std::stoi(argv[3]));
 	}
 	else if (std::string(argv[1]) == "heightmap")
 	{
+		map.setHeightRange(std::stoi(argv[3]), std::stoi(argv[4]));
 		map.loadHeightMapFromFile(std::string(argv[2]));
 	}
 	else if (std::string(argv[1]) == "obj")
 	{
-		map.loadHeightMapFromOBJFile(std::string(argv[2]), argc == 4 ? std::stoi(argv[3]) : 0);
+		map.setHeightRange(std::stoi(argv[3]), std::stoi(argv[4]));
+		map.loadHeightMapFromOBJFile(std::string(argv[2]), argc == 6 ? std::stoi(argv[5]) : 0);
 	}
 
 	distr = std::uniform_int_distribution(0, map.getWidth() * map.getLength());
